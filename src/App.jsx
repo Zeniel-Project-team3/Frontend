@@ -1,35 +1,42 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route } from 'react-router-dom';
+import { Layout } from 'antd';
+import AnalysisPage from './pages/AnalysisPage';
+import logo from './assets/logo.png';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+const { Header, Content } = Layout;
 
+function AppLayout() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+      <Header
+        style={{
+          background: '#fff',
+          padding: '0 24px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <img src={logo} alt="과업지시서 분석 대시보드" style={{ height: '32px', display: 'block' }} />
+      </Header>
+
+      <Content style={{ padding: '24px', background: '#f5f5f5' }}>
+        <Routes>
+          <Route path="/" element={<AnalysisPage />} />
+          <Route path="/analysis" element={<AnalysisPage />} />
+        </Routes>
+      </Content>
+    </Layout>
+  );
 }
 
-export default App
+function App() {
+  return (
+    <Routes>
+      <Route path="*" element={<AppLayout />} />
+    </Routes>
+  );
+}
+
+export default App;
