@@ -103,3 +103,20 @@ export const Education = Object.freeze({
  * @property {string} [competency]
  * @property {string} [desiredJob]
  */
+
+/**
+ * 상담 시나리오 AI 응답 (AiResponseDto) - GET /api/consultation/ai-scenario-request
+ * @typedef {Object} AiResponseDto
+ * @property {number} [clientId] 내담자 ID (화면 출력 없음, 참고용)
+ * @property {string} [consultationGoal] 금회차 핵심 목표
+ * @property {string} [mandatoryNotice] 필수 이행 및 고지 사항
+ * @property {string} [suggestedServices] 제안할 서비스
+ * @property {string} [keyQuestions] 이번 상담 핵심 질문
+ * @property {string} [smilarOccupations] 유사 스펙 직업 (백엔드 필드명 유지)
+ * @property {string} [avaerageSalary] 급여 수준 (백엔드 필드명 유지)
+ */
+
+/**
+ * 상담 자료 업로드 응답 (ConsultationUploadResponse)
+ * @typedef {Object} ConsultationUploadResponse
+ */

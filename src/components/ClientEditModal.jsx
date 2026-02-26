@@ -134,6 +134,7 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
   const [consultations, setConsultations] = useState([]);
   const [loadingExtra, setLoadingExtra] = useState(false);
   const [isEditingInViewMode, setIsEditingInViewMode] = useState(false);
+  const [viewActiveTabKey, setViewActiveTabKey] = useState('1');
 
   const isViewMode = useApiClient && client && client.id != null;
 
@@ -162,6 +163,7 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
       setTrainings([]);
       setConsultations([]);
       setIsEditingInViewMode(false);
+      setViewActiveTabKey('1');
     }
   }, [open, isViewMode, client?.id, fetchExtra]);
 
@@ -653,9 +655,11 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
     isViewMode && !isEditingInViewMode ? (
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
         <Button onClick={handleCancel}>닫기</Button>
-        <Button type="primary" onClick={handleEditInViewClick}>
-          수정
-        </Button>
+        {viewActiveTabKey === '1' && (
+          <Button type="primary" onClick={handleEditInViewClick}>
+            수정
+          </Button>
+        )}
       </div>
     ) : isViewMode && isEditingInViewMode ? (
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -688,7 +692,11 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
           <Tabs defaultActiveKey="1" items={updateFormTabItems} />
         </Form>
       ) : isViewMode ? (
-        <Tabs defaultActiveKey="1" items={viewModeTabItems} />
+        <Tabs
+          activeKey={viewActiveTabKey}
+          onChange={setViewActiveTabKey}
+          items={viewModeTabItems}
+        />
       ) : isRegisterMode ? (
         <Form form={form} layout="vertical" preserve={false}>
           <Tabs defaultActiveKey="1" items={registerFormTabItems} />

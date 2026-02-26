@@ -62,4 +62,34 @@ export async function updateClientData(request) {
   return data;
 }
 
+/**
+ * 상담 시나리오 조회 (이름 + 휴대폰)
+ * @param {string} name
+ * @param {string} phone
+ * @returns {Promise<import('./dataApi.types').AiResponseDto>}
+ */
+export async function getConsultationScenario(name, phone) {
+  const { data } = await dataApi.get('/api/consultation/ai-scenario-request', {
+    params: { name, phone },
+  });
+  return data;
+}
+
+/**
+ * 상담 자료 업로드 (파일 1개, clientId 경로)
+ * @param {number} clientId
+ * @param {File} file
+ * @returns {Promise<import('./dataApi.types').ConsultationUploadResponse>}
+ */
+export async function uploadConsultationFile(clientId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await dataApi.post(`/api/consultation/upload/${clientId}`, formData, {
+    headers: {
+      'Content-Type': undefined,
+    },
+  });
+  return data;
+}
+
 export default dataApi;

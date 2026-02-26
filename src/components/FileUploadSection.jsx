@@ -15,6 +15,7 @@ function FileUploadSection({
   searchName,
   setSearchName,
   searchBirthDate,
+  setSearchBirthDate,
   onAnalysisTrigger,
 }) {
   const handleFileChange = (info) => {
@@ -80,7 +81,7 @@ function FileUploadSection({
             <Input
               placeholder="주민등록번호"
               value={searchBirthDate}
-              onChange={(e) => searchBirthDate(e.target.value)}
+              onChange={(e) => setSearchBirthDate?.(e.target.value)}
               allowClear
             />
           </Col>

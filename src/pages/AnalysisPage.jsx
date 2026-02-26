@@ -85,20 +85,13 @@ function AnalysisPage() {
       <Content style={{ marginRight: 0, marginLeft: 0, paddingLeft: 24 }}>
         {sidebarSection === SIDEBAR_KEYS.ANALYSIS && (
           <CounselingPrepPage
-            uploadedFiles={uploadedFiles}
-            setUploadedFiles={setUploadedFiles}
             searchName={searchName}
             setSearchName={setSearchName}
-            searchBirthDate={searchBirthDate}
-            setSearchBirthDate={setSearchBirthDate}
-            searchGender={searchGender}
-            setSearchGender={setSearchGender}
             searchPhone={searchPhone}
             setSearchPhone={setSearchPhone}
-            onAnalysisTrigger={handleAnalysisTrigger}
-            hasAnalysis={hasAnalysis}
-            clientInfo={clientInfo}
-            workTrackerData={workTrackerData}
+            uploadedFiles={uploadedFiles}
+            setUploadedFiles={setUploadedFiles}
+            onScenarioLoaded={handleAnalysisTrigger}
           />
         )}
 
