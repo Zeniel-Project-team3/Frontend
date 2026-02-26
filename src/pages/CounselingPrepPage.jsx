@@ -1,18 +1,28 @@
 import { useState } from 'react';
-import { Card, Descriptions, Input, Button, Space, Spin, message } from 'antd';
-import { Search, Target, FileWarning, Gift, MessageCircle, Briefcase, Banknote } from 'lucide-react';
+import { Card, Descriptions, Input, Button, Space, Spin, message, Table, Tag, Typography } from 'antd';
+import { Search, User, Users, Lightbulb, Upload } from 'lucide-react';
 import { getConsultationScenario } from '../api/dataApi';
 import ExportScenarioButton from '../components/ExportScenarioButton';
 import FileUploadSection from '../components/FileUploadSection';
 
-const SCENARIO_LABELS = [
-  { key: 'consultationGoal', label: '금회차 핵심 목표', desc: '상담의 방향성', icon: Target },
-  { key: 'mandatoryNotice', label: '필수 이행 및 고지 사항', desc: '미이행 시 수당 부지급 등 법적 리스크 방지', icon: FileWarning },
-  { key: 'suggestedServices', label: '제안할 서비스', desc: '예: 직업심리검사, 일경험 등', icon: Gift },
-  { key: 'keyQuestions', label: '이번 상담 핵심 질문', desc: '내담자의 의지를 파악할 질문', icon: MessageCircle },
-  { key: 'smilarOccupations', label: '유사 스펙 직업', desc: '내담자와 유사한 스펙을 가진 사람의 직업', icon: Briefcase },
-  { key: 'avaerageSalary', label: '급여 수준', desc: '급여 수준', icon: Banknote },
-];
+const { Text } = Typography;
+
+function genderLabel(g) {
+  if (g === 'MALE') return '남';
+  if (g === 'FEMALE') return '여';
+  return g ?? '-';
+}
+
+function ListBlock({ items, emptyText = '-' }) {
+  if (!items?.length) return <Text type="secondary">{emptyText}</Text>;
+  return (
+    <ul style={{ margin: 0, paddingLeft: 18 }}>
+      {items.map((item, i) => (
+        <li key={i} style={{ marginBottom: 4 }}>{item}</li>
+      ))}
+    </ul>
+  );
+}
 
 function CounselingPrepPage({
   searchName,
@@ -50,9 +60,26 @@ function CounselingPrepPage({
     }
   };
 
+  const masked = scenarioData?.maskedInput;
+  const similarCases = scenarioData?.similarCases ?? [];
+  const rec = scenarioData?.recommendation;
+
+  const similarColumns = [
+    { title: '유사도', dataIndex: 'score', key: 'score', width: 80, render: (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '-') },
+    { title: '연령', dataIndex: 'age', key: 'age', width: 70, render: (v) => v ?? '-' },
+    { title: '성별', dataIndex: 'gender', key: 'gender', width: 70, render: genderLabel },
+    { title: '희망직종', dataIndex: 'desiredJob', key: 'desiredJob', ellipsis: true, render: (v) => v ?? '-' },
+    { title: '역량', dataIndex: 'competency', key: 'competency', width: 70, render: (v) => v ?? '-' },
+    { title: '취업 직무', dataIndex: 'jobTitle', key: 'jobTitle', ellipsis: true, render: (v) => v ?? '-' },
+    { title: '취업처', dataIndex: 'companyName', key: 'companyName', ellipsis: true, render: (v) => v ?? '-' },
+    { title: '급여', dataIndex: 'salary', key: 'salary', width: 90, render: (v) => (v != null ? `${v}` : '-') },
+    { title: '훈련', dataIndex: 'trainings', key: 'trainings', ellipsis: true, render: (arr) => Array.isArray(arr) ? arr.join(', ') : '-' },
+    { title: '상담 요약', dataIndex: 'consultationSummary', key: 'consultationSummary', ellipsis: true, render: (v) => v ?? '-' },
+  ];
+
   return (
     <>
-      <Card title="상담 자료 준비" style={{ marginBottom: '24px' }} variant="borderless">
+      <Card title="상담 자료 준비" style={{ marginBottom: 24 }} variant="borderless">
         <Space size="middle" wrap align="center">
           <Input
             placeholder="이름"
@@ -70,51 +97,176 @@ function CounselingPrepPage({
             style={{ width: 180 }}
             disabled={loading}
           />
-          <Button
-            type="primary"
-            icon={<Search size={16} />}
-            onClick={handleSearch}
-            loading={loading}
-          >
+          <Button type="primary" icon={<Search size={16} />} onClick={handleSearch} loading={loading}>
             조회
           </Button>
         </Space>
       </Card>
 
       {loading && (
-        <Card variant="borderless" style={{ marginBottom: '24px', textAlign: 'center', padding: 48 }}>
+        <Card variant="borderless" style={{ marginBottom: 24, textAlign: 'center', padding: 48 }}>
           <Spin size="large" tip="상담 시나리오 조회 중..." />
         </Card>
       )}
 
       {error && !loading && (
-        <Card variant="borderless" style={{ marginBottom: '24px', background: '#fff2f0', border: '1px solid #ffccc7' }}>
-          <span style={{ color: '#cf1322' }}>{error}</span>
+        <Card variant="borderless" style={{ marginBottom: 24, background: '#fff2f0', border: '1px solid #ffccc7' }}>
+          <Text type="danger">{error}</Text>
         </Card>
       )}
 
       {scenarioData && !loading && (
         <>
-          <Card
-            id="export-guidelines-section"
-            title="상담 시나리오"
-            variant="borderless"
-            style={{ marginBottom: '24px' }}
-            extra={searchName ? <ExportScenarioButton clientName={searchName} /> : null}
-          >
-            <Descriptions column={1} size="small" bordered>
-              {SCENARIO_LABELS.map(({ key, label, desc, icon: Icon }) => (
-                <Descriptions.Item key={key} label={<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon size={16} />{label}</span>}>
-                  <div>
-                    <div style={{ color: '#8c8c8c', fontSize: 12, marginBottom: 4 }}>{desc}</div>
-                    <div style={{ whiteSpace: 'pre-wrap' }}>{scenarioData[key] ?? '-'}</div>
-                  </div>
-                </Descriptions.Item>
-              ))}
-            </Descriptions>
-          </Card>
+          {scenarioData.queryText && (
+            <Card size="small" variant="borderless" style={{ marginBottom: 24, background: '#fafafa' }}>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>조회 문의</Text>
+              <Text style={{ whiteSpace: 'pre-wrap' }}>{scenarioData.queryText}</Text>
+            </Card>
+          )}
 
-          <Card title="상담 자료 업로드" variant="borderless" style={{ marginBottom: '24px' }}>
+          {masked && (
+            <Card
+              title={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <User size={18} />
+                  내담자 마스킹 정보
+                </span>
+              }
+              variant="borderless"
+              style={{ marginBottom: 24 }}
+            >
+              <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered>
+                <Descriptions.Item label="이름">{masked.name ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="연령">{masked.age ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="성별">{genderLabel(masked.gender)}</Descriptions.Item>
+                <Descriptions.Item label="학력">{masked.education ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="희망 직종">{masked.desiredJob ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="역량">{masked.competency ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="주소" span={3}>{masked.address ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="학교">{masked.university ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="전공">{masked.major ?? '-'}</Descriptions.Item>
+              </Descriptions>
+            </Card>
+          )}
+
+          {similarCases.length > 0 && (
+            <Card
+              title={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <Users size={18} />
+                  유사 사례
+                </span>
+              }
+              variant="borderless"
+              style={{ marginBottom: 24 }}
+            >
+              <Table
+                size="small"
+                dataSource={similarCases.map((row, i) => ({ ...row, key: row.clientId ?? i }))}
+                columns={similarColumns}
+                pagination={false}
+                scroll={{ x: 800 }}
+              />
+            </Card>
+          )}
+
+          {rec && (
+            <Card
+              id="export-guidelines-section"
+              title={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <Lightbulb size={18} />
+                  AI 추천
+                </span>
+              }
+              variant="borderless"
+              style={{ marginBottom: 24 }}
+              extra={searchName ? <ExportScenarioButton clientName={searchName} /> : null}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {(rec.recommendedJobsByProfile?.length > 0 || rec.recommendedJobsByDesiredJob?.length > 0) && (
+                  <div>
+                    <Text strong style={{ display: 'block', marginBottom: 8 }}>직무 추천</Text>
+                    <Space direction="vertical" size={4}>
+                      {rec.recommendedJobsByProfile?.length > 0 && (
+                        <div>
+                          <Text type="secondary" style={{ fontSize: 12 }}>프로필 기반</Text>
+                          <div style={{ marginTop: 4 }}>
+                            {rec.recommendedJobsByProfile.map((job, i) => (
+                              <Tag key={i} color="blue" style={{ marginBottom: 4 }}>{job}</Tag>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {rec.recommendedJobsByDesiredJob?.length > 0 && (
+                        <div>
+                          <Text type="secondary" style={{ fontSize: 12 }}>희망 직종 기반</Text>
+                          <div style={{ marginTop: 4 }}>
+                            {rec.recommendedJobsByDesiredJob.map((job, i) => (
+                              <Tag key={i} color="green" style={{ marginBottom: 4 }}>{job}</Tag>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Space>
+                  </div>
+                )}
+
+                {rec.recommendedTrainings?.length > 0 && (
+                  <div>
+                    <Text strong style={{ display: 'block', marginBottom: 8 }}>추천 훈련</Text>
+                    <ListBlock items={rec.recommendedTrainings} />
+                  </div>
+                )}
+
+                {rec.recommendedCompanies?.length > 0 && (
+                  <div>
+                    <Text strong style={{ display: 'block', marginBottom: 8 }}>추천 기업</Text>
+                    <ListBlock items={rec.recommendedCompanies} />
+                  </div>
+                )}
+
+                {rec.expectedSalaryRange && (
+                  <div>
+                    <Text strong style={{ display: 'block', marginBottom: 8 }}>예상 급여 범위</Text>
+                    <Text>{rec.expectedSalaryRange}</Text>
+                  </div>
+                )}
+
+                {rec.suggestedServices?.length > 0 && (
+                  <div>
+                    <Text strong style={{ display: 'block', marginBottom: 8 }}>제안 서비스</Text>
+                    <ListBlock items={rec.suggestedServices} />
+                  </div>
+                )}
+
+                {rec.coreQuestions?.length > 0 && (
+                  <div>
+                    <Text strong style={{ display: 'block', marginBottom: 8 }}>핵심 질문</Text>
+                    <ListBlock items={rec.coreQuestions} />
+                  </div>
+                )}
+
+                {rec.reason && (
+                  <div style={{ padding: 12, background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
+                    <Text strong style={{ display: 'block', marginBottom: 8 }}>추천 사유</Text>
+                    <Text style={{ whiteSpace: 'pre-wrap' }}>{rec.reason}</Text>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          <Card
+            title={
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Upload size={18} />
+                상담 자료 업로드
+              </span>
+            }
+            variant="borderless"
+            style={{ marginBottom: 24 }}
+          >
             <FileUploadSection
               uploadedFiles={uploadedFiles ?? []}
               setUploadedFiles={setUploadedFiles ?? (() => {})}

@@ -108,12 +108,55 @@ export const Education = Object.freeze({
  * 상담 시나리오 AI 응답 (AiResponseDto) - GET /api/consultation/ai-scenario-request
  * @typedef {Object} AiResponseDto
  * @property {number} [clientId] 내담자 ID (화면 출력 없음, 참고용)
- * @property {string} [consultationGoal] 금회차 핵심 목표
- * @property {string} [mandatoryNotice] 필수 이행 및 고지 사항
- * @property {string} [suggestedServices] 제안할 서비스
- * @property {string} [keyQuestions] 이번 상담 핵심 질문
- * @property {string} [smilarOccupations] 유사 스펙 직업 (백엔드 필드명 유지)
- * @property {string} [avaerageSalary] 급여 수준 (백엔드 필드명 유지)
+ * @property {import('./dataApi.types').MaskedInput} [maskedInput]
+ * @property {string} [queryText]
+ * @property {import('./dataApi.types').SimilarCase[]} [similarCases]
+ * @property {import('./dataApi.types').Recommendation} [recommendation]
+ */
+
+/**
+ * @typedef {Object} MaskedInput
+ * @property {number} [clientId]
+ * @property {string} [name]
+ * @property {string} [residentId]
+ * @property {number} [age]
+ * @property {string} [gender] MALE/FEMALE
+ * @property {string} [education]
+ * @property {string} [desiredJob]
+ * @property {string} [competency]
+ * @property {string} [address]
+ * @property {string} [university]
+ * @property {string} [major]
+ */
+
+/**
+ * @typedef {Object} SimilarCase
+ * @property {number} [clientId]
+ * @property {number} [score]
+ * @property {number} [age]
+ * @property {string} [gender]
+ * @property {string} [desiredJob]
+ * @property {string} [competency]
+ * @property {string} [education]
+ * @property {string} [major]
+ * @property {string} [university]
+ * @property {string} [jobTitle]
+ * @property {string} [companyName]
+ * @property {number} [salary]
+ * @property {string[]} [trainings]
+ * @property {string} [consultationSummary]
+ */
+
+/**
+ * @typedef {Object} Recommendation
+ * @property {string[]} [recommendedJobsByProfile]
+ * @property {string[]} [recommendedJobsByDesiredJob]
+ * @property {string[]} [recommendedTrainings]
+ * @property {string[]} [recommendedCompanies]
+ * @property {string} [expectedSalaryRange]
+ * @property {string[]} [suggestedServices]
+ * @property {string[]} [coreQuestions]
+ * @property {string} [reason]
  */
 
 /**
