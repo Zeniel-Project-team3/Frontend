@@ -52,4 +52,14 @@ export async function registerClient(request) {
   return data;
 }
 
+/**
+ * 내담자 수정 (updateClientData)
+ * @param {import('./dataApi.types').ClientRequest} request
+ * @returns {Promise<Map<string, Object>>}
+ */
+export async function updateClientData(request) {
+  const { data } = await dataApi.put('/api/data/client', request);
+  return data;
+}
+
 export default dataApi;

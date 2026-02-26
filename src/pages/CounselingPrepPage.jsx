@@ -22,7 +22,7 @@ function CounselingPrepPage({
 }) {
   return (
     <>
-      <Card title="내담자 이력서 및 진단서 분석" style={{ marginBottom: '24px' }} bordered={false}>
+      <Card title="내담자 이력서 및 진단서 분석" style={{ marginBottom: '24px' }} variant="borderless">
         <FileUploadSection
           uploadedFiles={uploadedFiles}
           setUploadedFiles={setUploadedFiles}
@@ -40,7 +40,7 @@ function CounselingPrepPage({
 
       {hasAnalysis && (
         <>
-          <Card size="small" style={{ marginBottom: '16px', background: '#fafafa' }} bordered={false}>
+          <Card size="small" style={{ marginBottom: '16px', background: '#fafafa' }} variant="borderless">
             <Descriptions
               title={
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -61,7 +61,7 @@ function CounselingPrepPage({
 
           <Card
             title="내담자 단계별 상담 현황"
-            bordered={false}
+            variant="borderless"
             style={{ marginBottom: '24px' }}
           >
             <WorkTrackerTable data={workTrackerData} />
@@ -70,7 +70,7 @@ function CounselingPrepPage({
           <Card
             id="export-guidelines-section"
             title="상담 시나리오"
-            bordered={false}
+            variant="borderless"
             extra={<ExportScenarioButton clientName={clientInfo.name} />}
           >
             <Typography.Text type="secondary">AI 연동 예정</Typography.Text>

@@ -14,7 +14,7 @@ function StatisticsPage({
     <Card
       id="export-statistics-section"
       title="분석 및 통계"
-      bordered={false}
+      variant="borderless"
       extra={
         <ExportStatisticsButton
           clientName={clientName}
@@ -32,7 +32,7 @@ function StatisticsPage({
       />
       <Card
         title="비슷한 보유 역량의 취업 성공 경로"
-        bordered={false}
+        variant="borderless"
         style={{ marginTop: '24px' }}
       >
         <SimilarCasesTable data={similarCasesData} />

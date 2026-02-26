@@ -88,3 +88,18 @@ export const Education = Object.freeze({
  * @property {string} [major]
  * @property {string} [education] Education enum
  */
+
+/**
+ * 내담자 수정 요청 (ClientRequest) - PUT /api/data/client
+ * @typedef {Object} ClientRequest
+ * @property {number} id 필수
+ * @property {string} [address]
+ * @property {string} [education] Education enum
+ * @property {string} [university]
+ * @property {string} [major]
+ * @property {string} [businessType]
+ * @property {string} [joinType]
+ * @property {string} [joinStage]
+ * @property {string} [competency]
+ * @property {string} [desiredJob]
+ */

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Form, Input, InputNumber, Modal, Select, Tabs, DatePicker, Checkbox, Typography, Table, Descriptions, Spin, Button, message } from 'antd';
 import dayjs from 'dayjs';
-import { getTrainings, getConsultations, registerClient } from '../api/dataApi';
+import { getTrainings, getConsultations, registerClient, updateClientData } from '../api/dataApi';
 import { Allowance, Education } from '../api/dataApi.types';
 
 const { Text } = Typography;
@@ -99,6 +99,15 @@ function genderLabel(g) {
   return g ?? '-';
 }
 
+/** 상세조회 client에서 값 추출 (camelCase / snake_case 둘 다 지원) */
+function getClientField(client, camelKey) {
+  if (!client) return undefined;
+  const camel = client[camelKey];
+  if (camel !== undefined && camel !== null) return camel;
+  const snake = camelKey.replace(/[A-Z]/g, (ch) => `_${ch.toLowerCase()}`);
+  return client[snake];
+}
+
 /** 주민번호 13자리에서 생년월일로 만 나이 계산 (YYMMDD + 7번째 자리 1,2=19xx / 3,4=20xx) */
 function ageFromResidentId(residentId) {
   const s = String(residentId ?? '').replace(/\D/g, '');
@@ -120,9 +129,11 @@ function ageFromResidentId(residentId) {
  */
 function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false }) {
   const [form] = Form.useForm();
+  const [updateForm] = Form.useForm();
   const [trainings, setTrainings] = useState([]);
   const [consultations, setConsultations] = useState([]);
   const [loadingExtra, setLoadingExtra] = useState(false);
+  const [isEditingInViewMode, setIsEditingInViewMode] = useState(false);
 
   const isViewMode = useApiClient && client && client.id != null;
 
@@ -150,8 +161,31 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
     } else if (!open) {
       setTrainings([]);
       setConsultations([]);
+      setIsEditingInViewMode(false);
     }
   }, [open, isViewMode, client?.id, fetchExtra]);
+
+  const getUpdateFormValuesFromClient = useCallback((c) => {
+    if (!c) return {};
+    return {
+      address: getClientField(c, 'address') ?? '',
+      education: getClientField(c, 'education') ?? undefined,
+      university: getClientField(c, 'university') ?? '',
+      major: getClientField(c, 'major') ?? '',
+      businessType: getClientField(c, 'businessType') ?? undefined,
+      joinType: getClientField(c, 'joinType') ?? undefined,
+      joinStage: getClientField(c, 'joinStage') ?? undefined,
+      competency: getClientField(c, 'competency') ?? undefined,
+      desiredJob: getClientField(c, 'desiredJob') ?? '',
+    };
+  }, []);
+
+  // 수정 모드 진입 시 상세조회(client) 데이터로 인풋 초기화 (camel/snake 필드명 모두 대응)
+  useEffect(() => {
+    if (open && isViewMode && isEditingInViewMode && client) {
+      updateForm.setFieldsValue(getUpdateFormValuesFromClient(client));
+    }
+  }, [open, isViewMode, isEditingInViewMode, client, updateForm, getUpdateFormValuesFromClient]);
 
   useEffect(() => {
     if (open && !isViewMode) {
@@ -265,7 +299,46 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
 
   const handleCancel = () => {
     form.resetFields();
+    updateForm.resetFields();
+    setIsEditingInViewMode(false);
     onCancel();
+  };
+
+  const handleEditInViewClick = () => {
+    if (!client) return;
+    const values = getUpdateFormValuesFromClient(client);
+    updateForm.setFieldsValue(values);
+    setIsEditingInViewMode(true);
+  };
+
+  /** 수정 폼에 넣을 상세조회 기준 초기값 (같은 필드 유지) */
+  const updateFormInitialValues =
+    isViewMode && isEditingInViewMode && client ? getUpdateFormValuesFromClient(client) : undefined;
+
+  const handleUpdateSave = async () => {
+    if (!client?.id) return;
+    try {
+      const values = await updateForm.validateFields();
+      await updateClientData({
+        id: client.id,
+        address: values.address?.trim() || undefined,
+        education: values.education || undefined,
+        university: values.university?.trim() || undefined,
+        major: values.major?.trim() || undefined,
+        businessType: values.businessType || undefined,
+        joinType: values.joinType || undefined,
+        joinStage: values.joinStage || undefined,
+        competency: values.competency || undefined,
+        desiredJob: values.desiredJob?.trim() || undefined,
+      });
+      message.success('수정되었습니다.');
+      setIsEditingInViewMode(false);
+      onSave();
+    } catch (err) {
+      if (err?.response?.data?.message) {
+        message.error(err.response.data.message);
+      }
+    }
   };
 
   const employer = Form.useWatch('employer', form);
@@ -354,22 +427,23 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
           label: '기본 정보',
           children: (
             <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label="이름">{client.name ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="연락처">{client.phone ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="연령">{client.age ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="성별">{genderLabel(client.gender)}</Descriptions.Item>
-              <Descriptions.Item label="사업유형">{client.businessType ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="참여유형">{client.joinType ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="참여단계">{client.joinStage ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="희망직종">{client.desiredJob ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="학교">{client.university ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="전공">{client.major ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="주소">{client.address ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="취업처">{client.companyName ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="직무">{client.jobTitle ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="급여">{client.salary != null ? client.salary : '-'}</Descriptions.Item>
-              <Descriptions.Item label="입사일">{client.employDate ?? '-'}</Descriptions.Item>
-              <Descriptions.Item label="퇴사일">{client.resignDate ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="이름">{getClientField(client, 'name') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="연락처">{getClientField(client, 'phone') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="연령">{getClientField(client, 'age') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="성별">{genderLabel(getClientField(client, 'gender'))}</Descriptions.Item>
+              <Descriptions.Item label="사업유형">{getClientField(client, 'businessType') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="참여유형">{getClientField(client, 'joinType') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="참여단계">{getClientField(client, 'joinStage') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="역량등급">{getClientField(client, 'competency') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="희망직종">{getClientField(client, 'desiredJob') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="학교">{getClientField(client, 'university') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="전공">{getClientField(client, 'major') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="주소">{getClientField(client, 'address') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="취업처">{getClientField(client, 'companyName') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="직무">{getClientField(client, 'jobTitle') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="급여">{getClientField(client, 'salary') != null ? getClientField(client, 'salary') : '-'}</Descriptions.Item>
+              <Descriptions.Item label="입사일">{getClientField(client, 'employDate') ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="퇴사일">{getClientField(client, 'resignDate') ?? '-'}</Descriptions.Item>
             </Descriptions>
           ),
         },
@@ -405,6 +479,44 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
         },
       ]
     : null;
+
+  const updateFormTabItems = [
+    {
+      key: '1',
+      label: '수정 정보',
+      children: (
+        <>
+          <Form.Item name="address" label="주소">
+            <Input placeholder="주소" />
+          </Form.Item>
+          <Form.Item name="education" label="최종학력">
+            <Select placeholder="최종학력" options={EDUCATION_API_OPTIONS} allowClear />
+          </Form.Item>
+          <Form.Item name="university" label="학교">
+            <Input placeholder="학교" />
+          </Form.Item>
+          <Form.Item name="major" label="전공">
+            <Input placeholder="전공" />
+          </Form.Item>
+          <Form.Item name="businessType" label="사업 유형">
+            <Select placeholder="사업 유형" options={BUSINESS_TYPE_OPTIONS} allowClear />
+          </Form.Item>
+          <Form.Item name="joinType" label="참여 유형">
+            <Select placeholder="참여 유형" options={PARTICIPATION_TYPE_OPTIONS} allowClear />
+          </Form.Item>
+          <Form.Item name="joinStage" label="참여 단계">
+            <Select placeholder="참여 단계" options={STAGE_OPTIONS} allowClear />
+          </Form.Item>
+          <Form.Item name="competency" label="역량 등급">
+            <Select placeholder="역량 등급" options={COMPETENCY_OPTIONS} allowClear />
+          </Form.Item>
+          <Form.Item name="desiredJob" label="희망 직종">
+            <Input placeholder="희망 직종" />
+          </Form.Item>
+        </>
+      ),
+    },
+  ];
 
   const formTabItems = [
     {
@@ -529,7 +641,30 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
     },
   ];
 
-  const modalTitle = isViewMode ? '상세 보기' : client ? '상세 수정' : '내담자 등록';
+  const modalTitle = isViewMode && !isEditingInViewMode
+    ? '상세 보기'
+    : isViewMode && isEditingInViewMode
+      ? '상세 수정'
+      : client
+        ? '상세 수정'
+        : '내담자 등록';
+
+  const viewModeFooter =
+    isViewMode && !isEditingInViewMode ? (
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <Button onClick={handleCancel}>닫기</Button>
+        <Button type="primary" onClick={handleEditInViewClick}>
+          수정
+        </Button>
+      </div>
+    ) : isViewMode && isEditingInViewMode ? (
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <Button onClick={() => setIsEditingInViewMode(false)}>취소</Button>
+        <Button type="primary" onClick={handleUpdateSave}>
+          저장
+        </Button>
+      </div>
+    ) : undefined;
 
   return (
     <Modal
@@ -539,11 +674,20 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
       onCancel={handleCancel}
       width={isViewMode ? 800 : 720}
       okText={client ? '저장' : '등록'}
-      cancelText={isViewMode ? '닫기' : '취소'}
+      cancelText={isViewMode && !isEditingInViewMode ? '닫기' : '취소'}
       destroyOnClose
-      footer={isViewMode ? <Button onClick={handleCancel}>닫기</Button> : undefined}
+      footer={isViewMode ? viewModeFooter : undefined}
     >
-      {isViewMode ? (
+      {isViewMode && isEditingInViewMode ? (
+        <Form
+          form={updateForm}
+          layout="vertical"
+          preserve={false}
+          initialValues={updateFormInitialValues}
+        >
+          <Tabs defaultActiveKey="1" items={updateFormTabItems} />
+        </Form>
+      ) : isViewMode ? (
         <Tabs defaultActiveKey="1" items={viewModeTabItems} />
       ) : isRegisterMode ? (
         <Form form={form} layout="vertical" preserve={false}>

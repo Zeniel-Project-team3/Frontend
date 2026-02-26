@@ -140,7 +140,7 @@ function AllDataEditorSection({
   );
 
   return (
-    <Card title="내담자 통합 관리" bordered={false} extra={headerExtra}>
+    <Card title="내담자 통합 관리" variant="borderless" extra={headerExtra}>
       <ClientTable
         dataSource={clients}
         loading={loading}
