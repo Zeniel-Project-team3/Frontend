@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Form, Input, InputNumber, Modal, Select, Tabs, DatePicker, Checkbox, Typography, Table, Descriptions, Spin, Button } from 'antd';
+import { Form, Input, InputNumber, Modal, Select, Tabs, DatePicker, Checkbox, Typography, Table, Descriptions, Spin, Button, message } from 'antd';
 import dayjs from 'dayjs';
-import { getTrainings, getConsultations } from '../api/dataApi';
-import { Allowance } from '../api/dataApi.types';
+import { getTrainings, getConsultations, registerClient } from '../api/dataApi';
+import { Allowance, Education } from '../api/dataApi.types';
 
 const { Text } = Typography;
 
@@ -16,6 +16,29 @@ const RETENTION_OPTIONS = [
 const GENDER_OPTIONS = [
   { value: '남', label: '남' },
   { value: '여', label: '여' },
+];
+
+/** API 등록용 성별 (백엔드 MALE/FEMALE) */
+const GENDER_API_OPTIONS = [
+  { value: 'MALE', label: '남' },
+  { value: 'FEMALE', label: '여' },
+];
+
+/** API 등록용 역량 등급 */
+const COMPETENCY_OPTIONS = [
+  { value: 'A', label: 'A' },
+  { value: 'B', label: 'B' },
+  { value: 'C', label: 'C' },
+  { value: 'D', label: 'D' },
+];
+
+/** API 등록용 최종학력 (백엔드 Education enum) */
+const EDUCATION_API_OPTIONS = [
+  { value: Education.MIDDLE_SCHOOL_OR_LESS, label: '중졸 이하' },
+  { value: Education.HIGH_SCHOOL, label: '고등학교 졸업' },
+  { value: Education.COLLEGE_2_3, label: '2·3년제 대학 졸업' },
+  { value: Education.BACHELOR, label: '4년제 대학 졸업' },
+  { value: Education.GRADUATE_OR_ABOVE, label: '대학원 이상' },
 ];
 
 const STAGE_OPTIONS = [
@@ -74,6 +97,22 @@ function genderLabel(g) {
   if (g === 'MALE') return '남';
   if (g === 'FEMALE') return '여';
   return g ?? '-';
+}
+
+/** 주민번호 13자리에서 생년월일로 만 나이 계산 (YYMMDD + 7번째 자리 1,2=19xx / 3,4=20xx) */
+function ageFromResidentId(residentId) {
+  const s = String(residentId ?? '').replace(/\D/g, '');
+  if (s.length !== 13) return null;
+  const yy = parseInt(s.slice(0, 2), 10);
+  const mm = parseInt(s.slice(2, 4), 10);
+  const dd = parseInt(s.slice(4, 6), 10);
+  const seventh = parseInt(s.slice(6, 7), 10);
+  const birthYear = seventh <= 2 ? 1900 + yy : 2000 + yy;
+  const today = dayjs();
+  let age = today.year() - birthYear;
+  const birthDate = dayjs(`${birthYear}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`);
+  if (today.isBefore(birthDate, 'day')) age -= 1;
+  return age >= 0 && age <= 150 ? age : null;
 }
 
 /**
@@ -155,6 +194,32 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
 
   const handleOk = async () => {
     try {
+      if (useApiClient && !client) {
+        const values = await form.validateFields([
+          'name', 'residentId', 'gender', 'competency', 'desiredJob', 'address', 'university', 'major', 'education',
+        ]);
+        const residentIdStr = values.residentId?.replace(/\D/g, '') ?? '';
+        const computedAge = ageFromResidentId(residentIdStr);
+        const request = {
+          name: values.name?.trim() || undefined,
+          residentId: residentIdStr || undefined,
+          age: computedAge ?? undefined,
+          gender: values.gender || undefined,
+          competency: values.competency || undefined,
+          desiredJob: values.desiredJob?.trim() || undefined,
+          address: values.address?.trim() || undefined,
+          university: values.university?.trim() || undefined,
+          major: values.major?.trim() || undefined,
+          education: values.education || undefined,
+        };
+        await registerClient(request);
+        message.success('내담자가 등록되었습니다.');
+        onSave();
+        form.resetFields();
+        onCancel();
+        return;
+      }
+
       const values = await form.validateFields();
       const payload = {
         ...(client || {}),
@@ -191,6 +256,9 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
       form.resetFields();
       onCancel();
     } catch (err) {
+      if (useApiClient && !client && err?.response?.data) {
+        message.error(err.response.data?.message || '등록에 실패했습니다.');
+      }
       // validation 실패 시 아무 동작 안 함
     }
   };
@@ -218,6 +286,65 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
     { title: '상담내용', dataIndex: 'detail', key: 'detail', ellipsis: true, render: (v) => v ?? '-' },
     { title: 'IAP 수립일', dataIndex: 'iapDate', key: 'iapDate', width: 110, render: (v) => v ?? '-' },
     { title: 'IAP 기간(일)', dataIndex: 'iapPeriod', key: 'iapPeriod', width: 90, render: (v) => (v != null ? v : '-') },
+  ];
+
+  const isRegisterMode = useApiClient && !client;
+
+  const registerFormTabItems = [
+    {
+      key: '1',
+      label: '등록 정보',
+      children: (
+        <>
+          <Form.Item name="name" label="이름" rules={[{ required: true, message: '이름을 입력하세요.' }]}>
+            <Input placeholder="이름" />
+          </Form.Item>
+          <Form.Item
+            name="residentId"
+            label="주민번호"
+            normalize={(v) => (v ? String(v).replace(/\D/g, '').slice(0, 13) : v)}
+            rules={[
+              { required: true, message: '주민번호를 입력하세요.' },
+              { pattern: /^\d{13}$/, message: '주민번호는 13자리 숫자만 입력하세요.' },
+            ]}
+          >
+            <Input placeholder="13자리 숫자" maxLength={13} inputMode="numeric" />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.residentId !== curr.residentId}>
+            {({ getFieldValue }) => {
+              const rid = (getFieldValue('residentId') ?? '').replace(/\D/g, '');
+              const age = rid.length === 13 ? ageFromResidentId(rid) : null;
+              return (
+                <Form.Item label="연령 (계산)">
+                  <Input value={age != null ? `${age}세` : '-'} disabled />
+                </Form.Item>
+              );
+            }}
+          </Form.Item>
+          <Form.Item name="gender" label="성별" rules={[{ required: true, message: '성별을 선택하세요.' }]}>
+            <Select placeholder="성별" options={GENDER_API_OPTIONS} allowClear />
+          </Form.Item>
+          <Form.Item name="competency" label="역량 등급">
+            <Select placeholder="역량 등급 선택" options={COMPETENCY_OPTIONS} allowClear />
+          </Form.Item>
+          <Form.Item name="desiredJob" label="희망 직종">
+            <Input placeholder="희망 직종" />
+          </Form.Item>
+          <Form.Item name="address" label="주소">
+            <Input placeholder="주소" />
+          </Form.Item>
+          <Form.Item name="university" label="학교">
+            <Input placeholder="학교" />
+          </Form.Item>
+          <Form.Item name="major" label="전공">
+            <Input placeholder="전공" />
+          </Form.Item>
+          <Form.Item name="education" label="최종학력">
+            <Select placeholder="최종학력" options={EDUCATION_API_OPTIONS} allowClear />
+          </Form.Item>
+        </>
+      ),
+    },
   ];
 
   const viewModeTabItems = isViewMode && client
@@ -418,6 +545,10 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
     >
       {isViewMode ? (
         <Tabs defaultActiveKey="1" items={viewModeTabItems} />
+      ) : isRegisterMode ? (
+        <Form form={form} layout="vertical" preserve={false}>
+          <Tabs defaultActiveKey="1" items={registerFormTabItems} />
+        </Form>
       ) : (
         <Form form={form} layout="vertical" preserve={false}>
           <Tabs defaultActiveKey="1" items={formTabItems} />

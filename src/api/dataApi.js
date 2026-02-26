@@ -42,4 +42,14 @@ export async function getConsultations(clientId) {
   return data;
 }
 
+/**
+ * 내담자 등록
+ * @param {import('./dataApi.types').ClientRegisterRequest} request
+ * @returns {Promise<{ id?: number }>} ClientRegisterResponse
+ */
+export async function registerClient(request) {
+  const { data } = await dataApi.post('/api/client/register', request);
+  return data;
+}
+
 export default dataApi;
