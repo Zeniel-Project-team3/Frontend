@@ -13,6 +13,15 @@ function genderLabel(g) {
   return g ?? '-';
 }
 
+/** 백엔드 Education enum → 한글 라벨 (상담자료 준비 내담자 정보용) */
+function educationLabel(edu) {
+  if (edu === 'MIDDLE_SCHOOL') return '중졸';
+  if (edu === 'HIGH_SCHOOL') return '고졸';
+  if (edu === 'COLLEGE') return '초대졸';
+  if (edu === 'UNIVERSITY') return '대졸';
+  return edu ?? '-';
+}
+
 function ListBlock({ items, emptyText = '-' }) {
   if (!items?.length) return <Text type="secondary">{emptyText}</Text>;
   return (
@@ -128,29 +137,23 @@ function CounselingPrepPage({
 
       {scenarioData && !loading && (
         <>
-          {scenarioData.queryText && (
-            <Card size="small" variant="borderless" style={{ marginBottom: 24, background: '#fafafa' }}>
-              <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>조회 문의</Text>
-              <Text style={{ whiteSpace: 'pre-wrap' }}>{scenarioData.queryText}</Text>
-            </Card>
-          )}
 
           {masked && (
             <Card
               title={
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                   <User size={18} />
-                  내담자 마스킹 정보
+                  내담자 정보
                 </span>
               }
               variant="borderless"
               style={{ marginBottom: 24 }}
             >
               <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered>
-                <Descriptions.Item label="이름">{masked.name ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="이름">{((searchName ?? '').trim() || masked.name) ?? '-'}</Descriptions.Item>
                 <Descriptions.Item label="연령">{masked.age ?? '-'}</Descriptions.Item>
                 <Descriptions.Item label="성별">{genderLabel(masked.gender)}</Descriptions.Item>
-                <Descriptions.Item label="학력">{masked.education ?? '-'}</Descriptions.Item>
+                <Descriptions.Item label="학력">{educationLabel(masked.education)}</Descriptions.Item>
                 <Descriptions.Item label="희망 직종">{masked.desiredJob ?? '-'}</Descriptions.Item>
                 <Descriptions.Item label="역량">{masked.competency ?? '-'}</Descriptions.Item>
                 <Descriptions.Item label="주소" span={3}>{masked.address ?? '-'}</Descriptions.Item>
