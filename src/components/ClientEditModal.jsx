@@ -1,6 +1,8 @@
-import { useEffect } from 'react';
-import { Form, Input, InputNumber, Modal, Select, Tabs, DatePicker, Checkbox, Typography } from 'antd';
+import { useEffect, useState, useCallback } from 'react';
+import { Form, Input, InputNumber, Modal, Select, Tabs, DatePicker, Checkbox, Typography, Table, Descriptions, Spin, Button } from 'antd';
 import dayjs from 'dayjs';
+import { getTrainings, getConsultations } from '../api/dataApi';
+import { Allowance } from '../api/dataApi.types';
 
 const { Text } = Typography;
 
@@ -61,49 +63,95 @@ function formatDate(value) {
   return String(value);
 }
 
+function allowanceLabel(a) {
+  if (a === Allowance.PAID) return '지급완료';
+  if (a === Allowance.UNPAID) return '미지급';
+  if (a === Allowance.NONE) return '없음';
+  return a ?? '-';
+}
+
+function genderLabel(g) {
+  if (g === 'MALE') return '남';
+  if (g === 'FEMALE') return '여';
+  return g ?? '-';
+}
+
 /**
- * @param {{ open: boolean; client: import('../types/client.types').Client | null; onSave: (values: import('../types/client.types').Client) => void; onCancel: () => void }} props
+ * @param {{ open: boolean; client: any; onSave: (values: any) => void; onCancel: () => void; useApiClient?: boolean }} props
  */
-function ClientEditModal({ open, client, onSave, onCancel }) {
+function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false }) {
   const [form] = Form.useForm();
+  const [trainings, setTrainings] = useState([]);
+  const [consultations, setConsultations] = useState([]);
+  const [loadingExtra, setLoadingExtra] = useState(false);
+
+  const isViewMode = useApiClient && client && client.id != null;
+
+  const fetchExtra = useCallback(async (clientId) => {
+    if (!clientId) return;
+    setLoadingExtra(true);
+    try {
+      const [trainList, consultList] = await Promise.all([
+        getTrainings(clientId),
+        getConsultations(clientId),
+      ]);
+      setTrainings(Array.isArray(trainList) ? trainList : []);
+      setConsultations(Array.isArray(consultList) ? consultList : []);
+    } catch {
+      setTrainings([]);
+      setConsultations([]);
+    } finally {
+      setLoadingExtra(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (open) {
+    if (open && isViewMode && client?.id) {
+      fetchExtra(client.id);
+    } else if (!open) {
+      setTrainings([]);
+      setConsultations([]);
+    }
+  }, [open, isViewMode, client?.id, fetchExtra]);
+
+  useEffect(() => {
+    if (open && !isViewMode) {
       if (client) {
+        const c = client;
         form.setFieldsValue({
-          name: client.name,
-          age: client.age,
-          gender: client.gender,
-          contact: client.contact,
-          school: client.school,
-          major: client.major,
-          finalEducation: client.finalEducation,
-          desiredJob: client.desiredJob ?? '',
-          businessType: client.businessType,
-          participationType: client.participationType,
-          currentStage: client.currentStage,
-          lastCounselingDate: toDayJs(client.lastCounselingDate),
-          recognitionNoticeDate: toDayJs(client.recognitionNoticeDate),
-          initialCounselingDate: toDayJs(client.initialCounselingDate),
-          iapEstablishmentDate: toDayJs(client.iapEstablishmentDate),
-          trainingName: client.trainingName,
-          trainingStartDate: toDayJs(client.startDate),
-          trainingEndDate: toDayJs(client.endDate),
-          trainingCompleted: client.trainingCompleted === true || client.trainingCompleted === 'Y' || client.trainingCompleted === '예',
-          workExpType: client.type,
-          participatingCompany: client.participatingCompany,
-          workExpCompleted: client.workExpCompleted === true || client.workExpCompleted === 'Y' || client.workExpCompleted === '예',
-          employer: client.employer,
-          jobTitle: client.jobTitle,
-          salary: client.salary,
-          employmentDate: toDayJs(client.employmentDate),
-          retentionMonths: client.retentionMonths ?? undefined,
+          name: c.name,
+          age: c.age,
+          gender: c.gender === 'MALE' ? '남' : c.gender === 'FEMALE' ? '여' : c.gender,
+          contact: c.phone ?? c.contact,
+          school: c.university ?? c.school,
+          major: c.major,
+          finalEducation: c.finalEducation,
+          desiredJob: c.desiredJob ?? '',
+          businessType: c.businessType,
+          participationType: c.joinType ?? c.participationType,
+          currentStage: c.joinStage ?? c.currentStage,
+          lastCounselingDate: toDayJs(c.lastCounselingDate),
+          recognitionNoticeDate: toDayJs(c.recognitionNoticeDate),
+          initialCounselingDate: toDayJs(c.initialCounselingDate),
+          iapEstablishmentDate: toDayJs(c.iapEstablishmentDate),
+          trainingName: c.trainingName,
+          trainingStartDate: toDayJs(c.startDate),
+          trainingEndDate: toDayJs(c.endDate),
+          trainingCompleted: c.trainingCompleted === true || c.trainingCompleted === 'Y' || c.trainingCompleted === '예',
+          workExpType: c.type,
+          participatingCompany: c.participatingCompany,
+          workExpCompleted: c.workExpCompleted === true || c.workExpCompleted === 'Y' || c.workExpCompleted === '예',
+          employer: c.companyName ?? c.employer,
+          jobTitle: c.jobTitle,
+          salary: c.salary != null ? String(c.salary) : c.salary,
+          employmentDate: toDayJs(c.employDate ?? c.employmentDate),
+          retentionMonths: c.retentionMonths ?? undefined,
         });
       } else {
         form.resetFields();
       }
     }
-  }, [open, client, form]);
+  }, [open, client, form, isViewMode]);
 
   const handleOk = async () => {
     try {
@@ -156,7 +204,82 @@ function ClientEditModal({ open, client, onSave, onCancel }) {
   const employmentDate = Form.useWatch('employmentDate', form);
   const hasEmployment = !!(employer || employmentDate);
 
-  const tabItems = [
+  const trainingColumns = [
+    { title: '과정명', dataIndex: 'courseName', key: 'courseName', render: (v) => v ?? '-' },
+    { title: '시작일', dataIndex: 'startDate', key: 'startDate', width: 110, render: (v) => v ?? '-' },
+    { title: '종료일', dataIndex: 'endDate', key: 'endDate', width: 110, render: (v) => v ?? '-' },
+    { title: '수당', dataIndex: 'allowance', key: 'allowance', width: 90, render: allowanceLabel },
+    { title: '수료', dataIndex: 'completed', key: 'completed', width: 70, render: (v) => (v ? '예' : '-') },
+  ];
+
+  const consultationColumns = [
+    { title: '상담일', dataIndex: 'consultDate', key: 'consultDate', width: 110, render: (v) => v ?? '-' },
+    { title: '요약', dataIndex: 'summary', key: 'summary', ellipsis: true, render: (v) => v ?? '-' },
+    { title: '상담내용', dataIndex: 'detail', key: 'detail', ellipsis: true, render: (v) => v ?? '-' },
+    { title: 'IAP 수립일', dataIndex: 'iapDate', key: 'iapDate', width: 110, render: (v) => v ?? '-' },
+    { title: 'IAP 기간(일)', dataIndex: 'iapPeriod', key: 'iapPeriod', width: 90, render: (v) => (v != null ? v : '-') },
+  ];
+
+  const viewModeTabItems = isViewMode && client
+    ? [
+        {
+          key: '1',
+          label: '기본 정보',
+          children: (
+            <Descriptions column={1} size="small" bordered>
+              <Descriptions.Item label="이름">{client.name ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="연락처">{client.phone ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="연령">{client.age ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="성별">{genderLabel(client.gender)}</Descriptions.Item>
+              <Descriptions.Item label="사업유형">{client.businessType ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="참여유형">{client.joinType ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="참여단계">{client.joinStage ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="희망직종">{client.desiredJob ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="학교">{client.university ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="전공">{client.major ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="주소">{client.address ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="취업처">{client.companyName ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="직무">{client.jobTitle ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="급여">{client.salary != null ? client.salary : '-'}</Descriptions.Item>
+              <Descriptions.Item label="입사일">{client.employDate ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="퇴사일">{client.resignDate ?? '-'}</Descriptions.Item>
+            </Descriptions>
+          ),
+        },
+        {
+          key: '2',
+          label: '훈련 내역',
+          children: loadingExtra ? (
+            <Spin tip="불러오는 중..." />
+          ) : (
+            <Table
+              size="small"
+              dataSource={trainings}
+              rowKey="trainingId"
+              columns={trainingColumns}
+              pagination={false}
+            />
+          ),
+        },
+        {
+          key: '3',
+          label: '상담 내역',
+          children: loadingExtra ? (
+            <Spin tip="불러오는 중..." />
+          ) : (
+            <Table
+              size="small"
+              dataSource={consultations}
+              rowKey="consultationId"
+              columns={consultationColumns}
+              pagination={false}
+            />
+          ),
+        },
+      ]
+    : null;
+
+  const formTabItems = [
     {
       key: '1',
       label: '기본 정보',
@@ -279,20 +402,27 @@ function ClientEditModal({ open, client, onSave, onCancel }) {
     },
   ];
 
+  const modalTitle = isViewMode ? '상세 보기' : client ? '상세 수정' : '내담자 등록';
+
   return (
     <Modal
-      title={client ? '상세 수정' : '내담자 등록'}
+      title={modalTitle}
       open={open}
-      onOk={handleOk}
+      onOk={isViewMode ? undefined : handleOk}
       onCancel={handleCancel}
-      width={720}
+      width={isViewMode ? 800 : 720}
       okText={client ? '저장' : '등록'}
-      cancelText="취소"
+      cancelText={isViewMode ? '닫기' : '취소'}
       destroyOnClose
+      footer={isViewMode ? <Button onClick={handleCancel}>닫기</Button> : undefined}
     >
-      <Form form={form} layout="vertical" preserve={false}>
-        <Tabs defaultActiveKey="1" items={tabItems} />
-      </Form>
+      {isViewMode ? (
+        <Tabs defaultActiveKey="1" items={viewModeTabItems} />
+      ) : (
+        <Form form={form} layout="vertical" preserve={false}>
+          <Tabs defaultActiveKey="1" items={formTabItems} />
+        </Form>
+      )}
     </Modal>
   );
 }

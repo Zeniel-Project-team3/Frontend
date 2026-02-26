@@ -66,12 +66,20 @@ function boolToDisplay(v) {
   return '-';
 }
 
+function genderDisplay(g) {
+  if (g === 'MALE') return '남';
+  if (g === 'FEMALE') return '여';
+  return g ?? '-';
+}
+
 /**
- * @param {{ dataSource: import('../types/client.types').Client[]; onEdit: (record: import('../types/client.types').Client) => void; onDataChange: (updated: import('../types/client.types').Client) => void; editable?: boolean }} props
+ * @param {{ dataSource: any[]; onEdit: (record: any) => void; onDataChange?: (updated: any) => void; editable?: boolean; useApiColumns?: boolean; loading?: boolean; paginationConfig?: { current: number; pageSize: number; total: number; onChange: (page: number, pageSize: number) => void } }} props
  */
-function ClientTable({ dataSource, onEdit, onDataChange, editable = false }) {
+function ClientTable({ dataSource, onEdit, onDataChange, editable = false, useApiColumns = false, loading = false, paginationConfig }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingCell, setEditingCell] = useState(null); // { key, dataIndex }
+  const rowKey = useApiColumns ? 'id' : 'key';
+  const recordKey = useApiColumns ? (r) => r.id : (r) => r.key;
 
   const isEditing = useCallback(
     (key, dataIndex) => editingCell?.key === key && editingCell?.dataIndex === dataIndex,
@@ -94,8 +102,8 @@ function ClientTable({ dataSource, onEdit, onDataChange, editable = false }) {
   const renderCell = useCallback(
     (record, dataIndex, config) => {
       const { type = 'text', options, min, max } = config || {};
-      const key = record.key;
-      const editing = isEditing(key, dataIndex);
+      const key = recordKey(record);
+      const editing = !useApiColumns && isEditing(key, dataIndex);
       const value = record[dataIndex];
       const display =
         dataIndex === 'trainingCompleted' || dataIndex === 'workExpCompleted'
@@ -181,7 +189,7 @@ function ClientTable({ dataSource, onEdit, onDataChange, editable = false }) {
         </span>
       );
     },
-    [isEditing, saveCell, onDataChange, editable]
+    [isEditing, saveCell, onDataChange, editable, useApiColumns, recordKey]
   );
 
   const col = (title, dataIndex, config = {}, extra = {}) => ({
@@ -194,7 +202,30 @@ function ClientTable({ dataSource, onEdit, onDataChange, editable = false }) {
     ...extra,
   });
 
-  const columns = [
+  const apiColumns = [
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 70, align: 'center', fixed: 'left', render: (v) => v ?? '-' },
+    { title: '이름', dataIndex: 'name', key: 'name', width: 90, fixed: 'left', render: (v) => v ?? '-' },
+    { title: '주민번호', dataIndex: 'residentId', key: 'residentId', width: 120, render: (v) => v ?? '-' },
+    { title: '생년월일', dataIndex: 'birthDate', key: 'birthDate', width: 105, render: (v) => v ?? '-' },
+    { title: '연락처', dataIndex: 'phone', key: 'phone', width: 110, render: (v) => v ?? '-' },
+    { title: '연령', dataIndex: 'age', key: 'age', width: 70, align: 'center', render: (v) => v ?? '-' },
+    { title: '성별', dataIndex: 'gender', key: 'gender', width: 70, render: (v) => genderDisplay(v) },
+    { title: '사업유형', dataIndex: 'businessType', key: 'businessType', width: 90, render: (v) => v ?? '-' },
+    { title: '참여유형', dataIndex: 'joinType', key: 'joinType', width: 110, render: (v) => v ?? '-' },
+    { title: '참여단계', dataIndex: 'joinStage', key: 'joinStage', width: 90, render: (v) => v ?? '-' },
+    { title: '역량등급', dataIndex: 'competency', key: 'competency', width: 90, render: (v) => v ?? '-' },
+    { title: '희망직종', dataIndex: 'desiredJob', key: 'desiredJob', width: 110, render: (v) => v ?? '-' },
+    { title: '주소', dataIndex: 'address', key: 'address', width: 140, ellipsis: true, render: (v) => v ?? '-' },
+    { title: '학교', dataIndex: 'university', key: 'university', width: 100, render: (v) => v ?? '-' },
+    { title: '전공', dataIndex: 'major', key: 'major', width: 100, render: (v) => v ?? '-' },
+    { title: '취업처', dataIndex: 'companyName', key: 'companyName', width: 110, render: (v) => v ?? '-' },
+    { title: '직무', dataIndex: 'jobTitle', key: 'jobTitle', width: 100, render: (v) => v ?? '-' },
+    { title: '급여', dataIndex: 'salary', key: 'salary', width: 90, render: (v) => (v != null ? String(v) : '-') },
+    { title: '입사일', dataIndex: 'employDate', key: 'employDate', width: 105, render: (v) => v ?? '-' },
+    { title: '퇴사일', dataIndex: 'resignDate', key: 'resignDate', width: 105, render: (v) => v ?? '-' },
+  ];
+
+  const legacyColumns = [
     {
       title: 'No',
       key: 'index',
@@ -232,19 +263,33 @@ function ClientTable({ dataSource, onEdit, onDataChange, editable = false }) {
     col('근속여부', 'retentionMonths', { type: 'select', options: RETENTION_OPTIONS }, { width: 80 }),
   ];
 
-  return (
-    <Table
-      columns={columns}
-      dataSource={dataSource}
-      rowKey="key"
-      pagination={{
+  const columns = useApiColumns ? apiColumns : legacyColumns;
+
+  const tablePagination = paginationConfig
+    ? {
+        current: paginationConfig.current,
+        pageSize: paginationConfig.pageSize,
+        total: paginationConfig.total,
+        onChange: paginationConfig.onChange,
+        showSizeChanger: true,
+        showTotal: (total) => `총 ${total}명`,
+      }
+    : {
         current: currentPage,
         pageSize: PAGE_SIZE,
         onChange: setCurrentPage,
         showSizeChanger: false,
-      }}
+      };
+
+  return (
+    <Table
+      columns={columns}
+      dataSource={dataSource}
+      rowKey={rowKey}
+      loading={loading}
+      pagination={tablePagination}
       size="small"
-      scroll={{ x: 2800 }}
+      scroll={{ x: useApiColumns ? 1800 : 2800 }}
       onRow={(record) => ({
         onClick: (e) => {
           if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.ant-picker') || e.target.closest('.ant-select-selector')) return;
