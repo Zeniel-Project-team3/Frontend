@@ -33,6 +33,16 @@ export async function getTrainings(clientId) {
 }
 
 /**
+ * 훈련 등록 (CreateTrainingRequest)
+ * @param {number} clientId
+ * @param {{ title: string, startDate: string, endDate: string, allowance: string, complete: boolean }} request
+ * @returns {Promise<void>}
+ */
+export async function addTrainings(clientId, request) {
+  await dataApi.post(`/api/data/training/${clientId}`, request);
+}
+
+/**
  * 내담자별 상담 목록
  * @param {number} clientId
  * @returns {Promise<import('./dataApi.types').ConsultationListResponse[]>}

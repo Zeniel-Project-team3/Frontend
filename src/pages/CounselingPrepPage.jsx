@@ -52,7 +52,17 @@ function CounselingPrepPage({
       onScenarioLoaded?.();
     } catch (err) {
       setScenarioData(null);
-      const msg = err?.response?.data?.message ?? err?.message ?? '조회에 실패했습니다.';
+      const resData = err?.response?.data;
+      let msg;
+
+      if (typeof resData === 'string') {
+        msg = resData;
+      } else if (resData && typeof resData.message === 'string') {
+        msg = resData.message;
+      } else {
+        msg = err?.message ?? '조회에 실패했습니다.';
+      }
+
       setError(msg);
       message.error(msg);
     } finally {
@@ -61,6 +71,7 @@ function CounselingPrepPage({
   };
 
   const masked = scenarioData?.maskedInput;
+  const clientId = scenarioData?.clientId ?? scenarioData?.maskedInput?.clientId ?? null;
   const similarCases = scenarioData?.similarCases ?? [];
   const rec = scenarioData?.recommendation;
 
@@ -275,6 +286,7 @@ function CounselingPrepPage({
               searchBirthDate=""
               setSearchBirthDate={() => {}}
               onAnalysisTrigger={onScenarioLoaded}
+              clientId={clientId}
             />
           </Card>
         </>

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Form, Input, InputNumber, Modal, Select, Tabs, DatePicker, Checkbox, Typography, Table, Descriptions, Spin, Button, message } from 'antd';
 import dayjs from 'dayjs';
-import { getTrainings, getConsultations, registerClient, updateClientData } from '../api/dataApi';
+import { getTrainings, getConsultations, registerClient, updateClientData, addTrainings } from '../api/dataApi';
 import { Allowance, Education } from '../api/dataApi.types';
 
 const { Text } = Typography;
@@ -74,6 +74,13 @@ const WORK_EXPERIENCE_TYPE_OPTIONS = [
   { value: '기타', label: '기타' },
 ];
 
+/** 훈련 등록용 수당 옵션 (백엔드 Allowance enum) */
+const TRAINING_ALLOWANCE_OPTIONS = [
+  { value: Allowance.PAID, label: '지급완료' },
+  { value: Allowance.UNPAID, label: '미지급' },
+  { value: Allowance.NONE, label: '없음' },
+];
+
 function toDayJs(str) {
   if (!str || typeof str !== 'string') return null;
   const d = dayjs(str, ['YYYY-MM-DD', 'YYYY-M-D'], true);
@@ -125,16 +132,20 @@ function ageFromResidentId(residentId) {
 }
 
 /**
- * @param {{ open: boolean; client: any; onSave: (values: any) => void; onCancel: () => void; useApiClient?: boolean }} props
+ * @param {{ open: boolean; client: any; onSave: (values: any) => void; onCancel: () => void; useApiClient?: boolean; onOpenCounselingPrep?: (name: string, phone: string) => void }} props
  */
-function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false }) {
+function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false, onOpenCounselingPrep }) {
   const [form] = Form.useForm();
   const [updateForm] = Form.useForm();
+  const [trainingAddForm] = Form.useForm();
   const [trainings, setTrainings] = useState([]);
   const [consultations, setConsultations] = useState([]);
   const [loadingExtra, setLoadingExtra] = useState(false);
   const [isEditingInViewMode, setIsEditingInViewMode] = useState(false);
   const [viewActiveTabKey, setViewActiveTabKey] = useState('1');
+  const [expandedConsultationText, setExpandedConsultationText] = useState({});
+  const [trainingAddModalOpen, setTrainingAddModalOpen] = useState(false);
+  const [trainingAddSubmitting, setTrainingAddSubmitting] = useState(false);
 
   const isViewMode = useApiClient && client && client.id != null;
 
@@ -164,8 +175,10 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
       setConsultations([]);
       setIsEditingInViewMode(false);
       setViewActiveTabKey('1');
+      setTrainingAddModalOpen(false);
+      trainingAddForm.resetFields();
     }
-  }, [open, isViewMode, client?.id, fetchExtra]);
+  }, [open, isViewMode, client?.id, fetchExtra, trainingAddForm]);
 
   const getUpdateFormValuesFromClient = useCallback((c) => {
     if (!c) return {};
@@ -317,6 +330,32 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
   const updateFormInitialValues =
     isViewMode && isEditingInViewMode && client ? getUpdateFormValuesFromClient(client) : undefined;
 
+  const handleTrainingAddOk = async () => {
+    if (!client?.id) return;
+    try {
+      const values = await trainingAddForm.validateFields();
+      const request = {
+        title: values.title?.trim() || undefined,
+        startDate: values.startDate ? formatDate(values.startDate) : undefined,
+        endDate: values.endDate ? formatDate(values.endDate) : undefined,
+        allowance: values.allowance ?? undefined,
+        complete: values.complete ?? false,
+      };
+      setTrainingAddSubmitting(true);
+      await addTrainings(client.id, request);
+      message.success('훈련이 등록되었습니다.');
+      setTrainingAddModalOpen(false);
+      trainingAddForm.resetFields();
+      fetchExtra(client.id);
+      onSave?.();
+    } catch (e) {
+      if (e?.errorFields) return; // validation
+      message.error(e?.response?.data?.message ?? e?.message ?? '훈련 등록에 실패했습니다.');
+    } finally {
+      setTrainingAddSubmitting(false);
+    }
+  };
+
   const handleUpdateSave = async () => {
     if (!client?.id) return;
     try {
@@ -357,8 +396,68 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
 
   const consultationColumns = [
     { title: '상담일', dataIndex: 'consultDate', key: 'consultDate', width: 110, render: (v) => v ?? '-' },
-    { title: '요약', dataIndex: 'summary', key: 'summary', ellipsis: true, render: (v) => v ?? '-' },
-    { title: '상담내용', dataIndex: 'detail', key: 'detail', ellipsis: true, render: (v) => v ?? '-' },
+    {
+      title: '요약',
+      dataIndex: 'summary',
+      key: 'summary',
+      ellipsis: false,
+      render: (text, record) => {
+        const raw = text ?? '';
+        const key = `${record.consultationId}-summary`;
+        const isExpanded = expandedConsultationText[key];
+        const display =
+          isExpanded || raw.length <= 40 ? raw || '-' : `${raw.slice(0, 40)}...`;
+        return (
+          <span
+            onClick={() =>
+              setExpandedConsultationText((prev) => ({
+                ...prev,
+                [key]: !prev[key],
+              }))
+            }
+            style={{
+              cursor: raw ? 'pointer' : 'default',
+              backgroundColor: isExpanded ? '#fffbe6' : 'transparent',
+              padding: isExpanded ? '2px 4px' : 0,
+              borderRadius: 4,
+            }}
+          >
+            {display}
+          </span>
+        );
+      },
+    },
+    {
+      title: '상담내용',
+      dataIndex: 'detail',
+      key: 'detail',
+      ellipsis: false,
+      render: (text, record) => {
+        const raw = text ?? '';
+        const key = `${record.consultationId}-detail`;
+        const isExpanded = expandedConsultationText[key];
+        const display =
+          isExpanded || raw.length <= 40 ? raw || '-' : `${raw.slice(0, 40)}...`;
+        return (
+          <span
+            onClick={() =>
+              setExpandedConsultationText((prev) => ({
+                ...prev,
+                [key]: !prev[key],
+              }))
+            }
+            style={{
+              cursor: raw ? 'pointer' : 'default',
+              backgroundColor: isExpanded ? '#fffbe6' : 'transparent',
+              padding: isExpanded ? '2px 4px' : 0,
+              borderRadius: 4,
+            }}
+          >
+            {display}
+          </span>
+        );
+      },
+    },
     { title: 'IAP 수립일', dataIndex: 'iapDate', key: 'iapDate', width: 110, render: (v) => v ?? '-' },
     { title: 'IAP 기간(일)', dataIndex: 'iapPeriod', key: 'iapPeriod', width: 90, render: (v) => (v != null ? v : '-') },
   ];
@@ -455,13 +554,20 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
           children: loadingExtra ? (
             <Spin tip="불러오는 중..." />
           ) : (
-            <Table
-              size="small"
-              dataSource={trainings}
-              rowKey="trainingId"
-              columns={trainingColumns}
-              pagination={false}
-            />
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                <Button type="primary" size="small" onClick={() => setTrainingAddModalOpen(true)}>
+                  훈련 등록
+                </Button>
+              </div>
+              <Table
+                size="small"
+                dataSource={trainings}
+                rowKey="trainingId"
+                columns={trainingColumns}
+                pagination={false}
+              />
+            </>
           ),
         },
         {
@@ -470,13 +576,18 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
           children: loadingExtra ? (
             <Spin tip="불러오는 중..." />
           ) : (
-            <Table
-              size="small"
-              dataSource={consultations}
-              rowKey="consultationId"
-              columns={consultationColumns}
-              pagination={false}
-            />
+            <>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                상담 요약/내용을 클릭하면 전체 내용이 펼쳐지고, 다시 클릭하면 접힙니다.
+              </Text>
+              <Table
+                size="small"
+                dataSource={consultations}
+                rowKey="consultationId"
+                columns={consultationColumns}
+                pagination={false}
+              />
+            </>
           ),
         },
       ]
@@ -643,13 +754,32 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
     },
   ];
 
-  const modalTitle = isViewMode && !isEditingInViewMode
+  const baseTitle = isViewMode && !isEditingInViewMode
     ? '상세 보기'
     : isViewMode && isEditingInViewMode
       ? '상세 수정'
       : client
         ? '상세 수정'
         : '내담자 등록';
+
+  const handleOpenCounselingPrepClick = () => {
+    if (!client || !onOpenCounselingPrep) return;
+    const name = getClientField(client, 'name') ?? '';
+    const phone = getClientField(client, 'phone') ?? getClientField(client, 'contact') ?? '';
+    onOpenCounselingPrep(name, phone);
+    handleCancel();
+  };
+
+  const modalTitle = (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+      <span>{baseTitle}</span>
+      {isViewMode && !isEditingInViewMode && client && onOpenCounselingPrep && (
+        <Button size="small" type="primary" onClick={handleOpenCounselingPrepClick}>
+          상담 자료 준비
+        </Button>
+      )}
+    </div>
+  );
 
   const viewModeFooter =
     isViewMode && !isEditingInViewMode ? (
@@ -677,6 +807,7 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
       onOk={isViewMode ? undefined : handleOk}
       onCancel={handleCancel}
       width={isViewMode ? 800 : 720}
+      closable={false}
       okText={client ? '저장' : '등록'}
       cancelText={isViewMode && !isEditingInViewMode ? '닫기' : '취소'}
       destroyOnClose
@@ -706,6 +837,35 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false 
           <Tabs defaultActiveKey="1" items={formTabItems} />
         </Form>
       )}
+
+      <Modal
+        title="훈련 등록"
+        open={trainingAddModalOpen}
+        onOk={handleTrainingAddOk}
+        onCancel={() => { setTrainingAddModalOpen(false); trainingAddForm.resetFields(); }}
+        confirmLoading={trainingAddSubmitting}
+        okText="등록"
+        cancelText="취소"
+        destroyOnClose
+      >
+        <Form form={trainingAddForm} layout="vertical" preserve={false}>
+          <Form.Item name="title" label="과정명" rules={[{ required: true, message: '과정명을 입력하세요.' }]}>
+            <Input placeholder="과정명" />
+          </Form.Item>
+          <Form.Item name="startDate" label="시작일">
+            <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" />
+          </Form.Item>
+          <Form.Item name="endDate" label="종료일">
+            <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" />
+          </Form.Item>
+          <Form.Item name="allowance" label="수당">
+            <Select placeholder="수당" options={TRAINING_ALLOWANCE_OPTIONS} allowClear />
+          </Form.Item>
+          <Form.Item name="complete" label="수료" valuePropName="checked" initialValue={false}>
+            <Checkbox>수료</Checkbox>
+          </Form.Item>
+        </Form>
+      </Modal>
     </Modal>
   );
 }

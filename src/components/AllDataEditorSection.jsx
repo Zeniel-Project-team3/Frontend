@@ -13,6 +13,7 @@ import { getAllClients } from '../api/dataApi';
 function AllDataEditorSection({
   clientData: controlledClients,
   setClientData: setControlledClients,
+  onOpenCounselingPrep,
 }) {
   const [apiClients, setApiClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,6 +157,7 @@ function AllDataEditorSection({
         onSave={handleSave}
         onCancel={closeModal}
         useApiClient={useApi}
+        onOpenCounselingPrep={onOpenCounselingPrep}
       />
     </Card>
   );

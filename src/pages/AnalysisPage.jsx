@@ -110,6 +110,11 @@ function AnalysisPage() {
             setJobMatchData={setJobMatchData}
             skillDistributionData={skillDistributionData}
             setSkillDistributionData={setSkillDistributionData}
+            onOpenCounselingPrep={(name, phone) => {
+              setSearchName(name || '');
+              setSearchPhone(phone || '');
+              setSidebarSection(SIDEBAR_KEYS.ANALYSIS);
+            }}
           />
         )}
 
