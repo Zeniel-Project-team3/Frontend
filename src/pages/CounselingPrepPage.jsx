@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Descriptions, Input, Button, Space, Spin, message, Table, Tag, Typography } from 'antd';
+import { Card, Descriptions, Input, Button, Space, Spin, message, Table, Typography } from 'antd';
 import { Search, User, Users, Lightbulb, Upload } from 'lucide-react';
 import { getConsultationScenario } from '../api/dataApi';
 import ExportScenarioButton from '../components/ExportScenarioButton';
@@ -11,6 +11,12 @@ function genderLabel(g) {
   if (g === 'MALE') return '남';
   if (g === 'FEMALE') return '여';
   return g ?? '-';
+}
+
+/** 숫자 세 자리마다 콤마 삽입 (문자열 내 숫자도 포맷) */
+function formatNumberWithCommas(str) {
+  if (str == null || typeof str !== 'string') return str ?? '';
+  return str.replace(/\d+/g, (num) => Number(num).toLocaleString());
 }
 
 /** 백엔드 Education enum → 한글 라벨 (상담자료 준비 내담자 정보용) */
@@ -32,6 +38,27 @@ function ListBlock({ items, emptyText = '-' }) {
     </ul>
   );
 }
+
+const notionBlock = {
+  marginBottom: 12,
+  padding: '14px 16px',
+  background: '#fff',
+  borderRadius: 8,
+  border: '1px solid rgba(55, 53, 47, 0.09)',
+};
+const notionLabel = {
+  fontSize: 15,
+  fontWeight: 700,
+  color: 'rgb(55, 53, 47)',
+  marginBottom: 8,
+  listStyle: 'none',
+};
+const notionCallout = {
+  padding: '16px 20px',
+  borderRadius: 6,
+  background: '#fff',
+  marginTop: 4,
+};
 
 function CounselingPrepPage({
   searchName,
@@ -92,7 +119,7 @@ function CounselingPrepPage({
     { title: '역량', dataIndex: 'competency', key: 'competency', width: 70, render: (v) => v ?? '-' },
     { title: '취업 직무', dataIndex: 'jobTitle', key: 'jobTitle', ellipsis: true, render: (v) => v ?? '-' },
     { title: '취업처', dataIndex: 'companyName', key: 'companyName', ellipsis: true, render: (v) => v ?? '-' },
-    { title: '급여', dataIndex: 'salary', key: 'salary', width: 90, render: (v) => (v != null ? `${v}` : '-') },
+    { title: '급여', dataIndex: 'salary', key: 'salary', width: 90, render: (v) => (v != null ? formatNumberWithCommas(String(v)) : '-') },
     { title: '훈련', dataIndex: 'trainings', key: 'trainings', ellipsis: true, render: (arr) => Array.isArray(arr) ? arr.join(', ') : '-' },
     { title: '상담 요약', dataIndex: 'consultationSummary', key: 'consultationSummary', ellipsis: true, render: (v) => v ?? '-' },
   ];
@@ -194,30 +221,53 @@ function CounselingPrepPage({
                 </span>
               }
               variant="borderless"
-              style={{ marginBottom: 24 }}
+              style={{ marginBottom: 24, background: '#f7f6f3', border: '1px solid rgba(55, 53, 47, 0.09)', borderRadius: 8 }}
               extra={searchName ? <ExportScenarioButton clientName={searchName} /> : null}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 {(rec.recommendedJobsByProfile?.length > 0 || rec.recommendedJobsByDesiredJob?.length > 0) && (
-                  <div>
-                    <Text strong style={{ display: 'block', marginBottom: 8 }}>직무 추천</Text>
-                    <Space direction="vertical" size={4}>
+                  <div style={notionBlock}>
+                    <div style={notionLabel}>직무 추천</div>
+                    <Space direction="vertical" size={10} style={{ width: '100%' }}>
                       {rec.recommendedJobsByProfile?.length > 0 && (
                         <div>
-                          <Text type="secondary" style={{ fontSize: 12 }}>프로필 기반</Text>
-                          <div style={{ marginTop: 4 }}>
+                          <div style={{ fontSize: 12, color: 'rgba(55, 53, 47, 0.5)', marginBottom: 6 }}>프로필 기반</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                             {rec.recommendedJobsByProfile.map((job, i) => (
-                              <Tag key={i} color="blue" style={{ marginBottom: 4 }}>{job}</Tag>
+                              <span
+                                key={i}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: 4,
+                                  background: 'rgba(55, 53, 47, 0.08)',
+                                  fontSize: 13,
+                                  color: 'rgb(55, 53, 47)',
+                                }}
+                              >
+                                {job}
+                              </span>
                             ))}
                           </div>
                         </div>
                       )}
                       {rec.recommendedJobsByDesiredJob?.length > 0 && (
                         <div>
-                          <Text type="secondary" style={{ fontSize: 12 }}>희망 직종 기반</Text>
-                          <div style={{ marginTop: 4 }}>
+                          <div style={{ fontSize: 12, color: 'rgba(55, 53, 47, 0.5)', marginBottom: 6 }}>희망 직종 기반</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                             {rec.recommendedJobsByDesiredJob.map((job, i) => (
-                              <Tag key={i} color="green" style={{ marginBottom: 4 }}>{job}</Tag>
+                              <span
+                                key={i}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: 4,
+                                  background: 'rgba(55, 53, 47, 0.06)',
+                                  border: '1px solid rgba(55, 53, 47, 0.12)',
+                                  fontSize: 13,
+                                  color: 'rgb(55, 53, 47)',
+                                }}
+                              >
+                                {job}
+                              </span>
                             ))}
                           </div>
                         </div>
@@ -227,44 +277,60 @@ function CounselingPrepPage({
                 )}
 
                 {rec.recommendedTrainings?.length > 0 && (
-                  <div>
-                    <Text strong style={{ display: 'block', marginBottom: 8 }}>추천 훈련</Text>
-                    <ListBlock items={rec.recommendedTrainings} />
+                  <div style={notionBlock}>
+                    <div style={notionLabel}>추천 훈련</div>
+                    <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none', lineHeight: 1.6 }}>
+                      {rec.recommendedTrainings.map((item, i) => (
+                        <li key={i} style={{ marginBottom: 4, color: 'rgb(55, 53, 47)' }}>{item}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
                 {rec.recommendedCompanies?.length > 0 && (
-                  <div>
-                    <Text strong style={{ display: 'block', marginBottom: 8 }}>추천 기업</Text>
-                    <ListBlock items={rec.recommendedCompanies} />
+                  <div style={notionBlock}>
+                    <div style={notionLabel}>추천 기업</div>
+                    <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none', lineHeight: 1.6 }}>
+                      {rec.recommendedCompanies.map((item, i) => (
+                        <li key={i} style={{ marginBottom: 4, color: 'rgb(55, 53, 47)' }}>{item}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
                 {rec.expectedSalaryRange && (
-                  <div>
-                    <Text strong style={{ display: 'block', marginBottom: 8 }}>예상 급여 범위</Text>
-                    <Text>{rec.expectedSalaryRange}</Text>
+                  <div style={notionBlock}>
+                    <div style={notionLabel}>예상 급여 범위</div>
+                    <div style={{ fontSize: 15, fontWeight: 500, color: 'rgb(55, 53, 47)' }}>{formatNumberWithCommas(rec.expectedSalaryRange)}</div>
                   </div>
                 )}
 
                 {rec.suggestedServices?.length > 0 && (
-                  <div>
-                    <Text strong style={{ display: 'block', marginBottom: 8 }}>제안 서비스</Text>
-                    <ListBlock items={rec.suggestedServices} />
+                  <div style={notionBlock}>
+                    <div style={notionLabel}>제안 서비스</div>
+                    <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none', lineHeight: 1.6 }}>
+                      {rec.suggestedServices.map((item, i) => (
+                        <li key={i} style={{ marginBottom: 4, color: 'rgb(55, 53, 47)' }}>{item}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
                 {rec.coreQuestions?.length > 0 && (
-                  <div>
-                    <Text strong style={{ display: 'block', marginBottom: 8 }}>핵심 질문</Text>
-                    <ListBlock items={rec.coreQuestions} />
+                  <div style={notionBlock}>
+                    <div style={notionLabel}>핵심 질문</div>
+                    <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>
+                      {rec.coreQuestions.map((item, i) => (
+                        <li key={i} style={{ marginBottom: 8, color: 'rgb(55, 53, 47)' }}>{item}</li>
+                      ))}
+                    </ol>
                   </div>
                 )}
 
                 {rec.reason && (
-                  <div style={{ padding: 12, background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
-                    <Text strong style={{ display: 'block', marginBottom: 8 }}>추천 사유</Text>
-                    <Text style={{ whiteSpace: 'pre-wrap' }}>{rec.reason}</Text>
+                  <div style={{ ...notionBlock, ...notionCallout }}>
+                    <div style={notionLabel}>추천 사유</div>
+                    <Text style={{ whiteSpace: 'pre-wrap', color: 'rgb(55, 53, 47)', lineHeight: 1.6 }}>{rec.reason}</Text>
                   </div>
                 )}
               </div>
