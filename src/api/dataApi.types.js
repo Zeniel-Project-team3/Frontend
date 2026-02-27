@@ -77,8 +77,9 @@ export const Education = Object.freeze({
 /**
  * 내담자 등록 요청 (ClientRegisterRequest)
  * @typedef {Object} ClientRegisterRequest
- * @property {string} name
- * @property {string} [residentId]
+ * @property {string} name 필수
+ * @property {string} residentId 필수 (주민번호)
+ * @property {string} phone 필수 (연락처)
  * @property {number} [age]
  * @property {string} [gender] MALE | FEMALE
  * @property {string} [competency]

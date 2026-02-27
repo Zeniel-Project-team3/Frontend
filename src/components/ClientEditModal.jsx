@@ -245,13 +245,14 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false,
     try {
       if (useApiClient && !client) {
         const values = await form.validateFields([
-          'name', 'residentId', 'gender', 'competency', 'desiredJob', 'address', 'university', 'major', 'education',
+          'name', 'residentId', 'phone', 'gender', 'competency', 'desiredJob', 'address', 'university', 'major', 'education',
         ]);
         const residentIdStr = values.residentId?.replace(/\D/g, '') ?? '';
         const computedAge = ageFromResidentId(residentIdStr);
         const request = {
-          name: values.name?.trim() || undefined,
-          residentId: residentIdStr || undefined,
+          name: values.name?.trim(),
+          residentId: residentIdStr,
+          phone: values.phone?.trim() ?? '',
           age: computedAge ?? undefined,
           gender: values.gender || undefined,
           competency: values.competency || undefined,
@@ -461,6 +462,9 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false,
             ]}
           >
             <Input placeholder="13자리 숫자" maxLength={13} inputMode="numeric" />
+          </Form.Item>
+          <Form.Item name="phone" label="연락처" rules={[{ required: true, message: '연락처를 입력하세요.' }]}>
+            <Input placeholder="연락처" />
           </Form.Item>
           <Form.Item noStyle shouldUpdate={(prev, curr) => prev.residentId !== curr.residentId}>
             {({ getFieldValue }) => {

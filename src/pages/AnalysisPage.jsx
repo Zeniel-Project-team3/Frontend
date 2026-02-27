@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Layout, Menu } from 'antd';
-import { FileText, BarChart3, Database } from 'lucide-react';
+import { FileText, Database } from 'lucide-react';
 import CounselingPrepPage from './CounselingPrepPage';
 import AllDataPage from './AllDataPage';
-import StatisticsPage from './StatisticsPage';
 import {
   defaultGuidelines,
   defaultJobMatchData,
@@ -16,7 +15,7 @@ import {
 const { Content, Sider } = Layout;
 const LEFT_SIDER_WIDTH = 220;
 
-const SIDEBAR_KEYS = { ANALYSIS: 'analysis', ALL_DATA: 'all_data', STATISTICS: 'statistics' };
+const SIDEBAR_KEYS = { ANALYSIS: 'analysis', ALL_DATA: 'all_data' };
 
 function AnalysisPage() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -24,7 +23,6 @@ function AnalysisPage() {
   const [searchBirthDate, setSearchBirthDate] = useState('');
   const [searchGender, setSearchGender] = useState('');
   const [searchPhone, setSearchPhone] = useState('');
-  const [hasAnalysis, setHasAnalysis] = useState(false);
   const [sidebarSection, setSidebarSection] = useState(SIDEBAR_KEYS.ALL_DATA);
   const [workTrackerData, setWorkTrackerData] = useState(defaultWorkTrackerData);
   const [similarCasesData, setSimilarCasesData] = useState(defaultSimilarCasesData);
@@ -39,9 +37,7 @@ function AnalysisPage() {
     phone: searchPhone,
   };
 
-  const handleAnalysisTrigger = () => {
-    setHasAnalysis(true);
-  };
+  const handleAnalysisTrigger = () => {};
 
   return (
     <Layout style={{ background: 'transparent' }}>
@@ -71,12 +67,6 @@ function AnalysisPage() {
               key: SIDEBAR_KEYS.ANALYSIS,
               icon: <FileText size={18} />,
               label: '상담 자료 준비',
-            },
-            {
-              key: SIDEBAR_KEYS.STATISTICS,
-              icon: <BarChart3 size={18} />,
-              label: '분석 및 통계',
-              disabled: !hasAnalysis,
             },
           ]}
         />
@@ -115,17 +105,6 @@ function AnalysisPage() {
               setSearchPhone(phone || '');
               setSidebarSection(SIDEBAR_KEYS.ANALYSIS);
             }}
-          />
-        )}
-
-        {/* 분석 및 통계 영역 */}
-        {hasAnalysis && sidebarSection === SIDEBAR_KEYS.STATISTICS && (
-          <StatisticsPage
-            clientName={clientInfo.name}
-            successRateData={successRateData}
-            jobMatchData={jobMatchData}
-            skillDistributionData={skillDistributionData}
-            similarCasesData={similarCasesData}
           />
         )}
       </Content>

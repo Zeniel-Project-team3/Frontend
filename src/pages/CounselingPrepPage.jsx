@@ -1,6 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, Descriptions, Input, Button, Space, Spin, message, Table, Typography } from 'antd';
-import { Search, User, Users, Lightbulb, Upload } from 'lucide-react';
+import { Search, User, Users, Lightbulb, Upload, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts';
 import { getConsultationScenario } from '../api/dataApi';
 import ExportScenarioButton from '../components/ExportScenarioButton';
 import FileUploadSection from '../components/FileUploadSection';
@@ -60,6 +73,131 @@ const notionCallout = {
   marginTop: 4,
 };
 
+const CHART_COLORS = ['#597ef7', '#73d13d', '#faad14', '#f5222d', '#9254de', '#13c2c2'];
+
+/** 유사 사례 통계 영역: 전체 유사 사례 기준 차트 */
+function SimilarCasesStatsContent({ allCases }) {
+  const stats = useMemo(() => {
+    const cases = Array.isArray(allCases) ? allCases : [];
+    const salaries = cases.map((c, i) => ({ name: `사례 ${i + 1}`, salary: c.salary ?? 0, clientId: c.clientId }));
+    const ageCounts = {};
+    const genderCounts = { MALE: 0, FEMALE: 0 };
+    const educationCounts = {};
+    const competencyCounts = {};
+    cases.forEach((c) => {
+      if (c.age != null) ageCounts[c.age] = (ageCounts[c.age] || 0) + 1;
+      if (c.gender === 'MALE' || c.gender === 'FEMALE') genderCounts[c.gender]++;
+      if (c.education) educationCounts[c.education] = (educationCounts[c.education] || 0) + 1;
+      if (c.competency) competencyCounts[c.competency] = (competencyCounts[c.competency] || 0) + 1;
+    });
+    const ageData = Object.entries(ageCounts)
+      .map(([age, count]) => ({ age: `${age}세`, count, sortKey: Number(age) }))
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ age, count }) => ({ age, count }));
+    const genderData = [
+      { name: '남', value: genderCounts.MALE, color: CHART_COLORS[0] },
+      { name: '여', value: genderCounts.FEMALE, color: CHART_COLORS[1] },
+    ].filter((d) => d.value > 0);
+    const educationData = Object.entries(educationCounts).map(([edu, count]) => ({ name: educationLabel(edu), count }));
+    const competencyData = Object.entries(competencyCounts).map(([comp, count]) => ({ name: comp, count }));
+    const salarySummary = cases.length
+      ? {
+          min: Math.min(...cases.map((c) => c.salary).filter((s) => s != null)),
+          max: Math.max(...cases.map((c) => c.salary).filter((s) => s != null)),
+          avg: Math.round(cases.reduce((a, c) => a + (c.salary ?? 0), 0) / cases.length),
+        }
+      : null;
+    return { salaries, ageData, genderData, educationData, competencyData, salarySummary };
+  }, [allCases]);
+
+  return (
+    <div style={{ padding: '16px 24px', background: '#fafafa', borderRadius: 8, marginTop: 12 }}>
+      {stats.salarySummary && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #eee' }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>급여 요약 (전체 유사 사례)</Text>
+            <div style={{ marginTop: 4 }}>
+              최소 {formatNumberWithCommas(String(stats.salarySummary.min))}원 · 평균 {formatNumberWithCommas(String(stats.salarySummary.avg))}원 · 최대 {formatNumberWithCommas(String(stats.salarySummary.max))}원
+            </div>
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+          {stats.salaries.length > 0 && (
+            <div style={{ background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #eee', minHeight: 220 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>사례별 급여</Text>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={stats.salaries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
+                  <Tooltip formatter={(v) => [formatNumberWithCommas(String(v)) + '원', '급여']} />
+                  <Bar dataKey="salary" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {stats.genderData.length > 0 && (
+            <div style={{ background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #eee', minHeight: 220 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>성별 분포</Text>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={stats.genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label={({ name, value }) => `${name} ${value}명`}>
+                    {stats.genderData.map((_, i) => (
+                      <Cell key={i} fill={stats.genderData[i].color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {stats.ageData.length > 0 && (
+            <div style={{ background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #eee', minHeight: 220 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>연령 분포</Text>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={stats.ageData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="age" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} name="명" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {stats.educationData.length > 0 && (
+            <div style={{ background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #eee', minHeight: 220 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>학력 분포</Text>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={stats.educationData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill={CHART_COLORS[3]} radius={[4, 4, 0, 0]} name="명" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {stats.competencyData.length > 0 && (
+            <div style={{ background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #eee', minHeight: 220 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>역량 분포</Text>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={stats.competencyData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill={CHART_COLORS[4]} radius={[4, 4, 0, 0]} name="명" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+    </div>
+  );
+}
+
 function CounselingPrepPage({
   searchName,
   setSearchName,
@@ -72,6 +210,7 @@ function CounselingPrepPage({
   const [scenarioData, setScenarioData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showSimilarStats, setShowSimilarStats] = useState(false);
 
   const handleSearch = async () => {
     const name = (searchName ?? '').trim();
@@ -208,6 +347,26 @@ function CounselingPrepPage({
                 pagination={false}
                 scroll={{ x: 800 }}
               />
+              <button
+                type="button"
+                onClick={() => setShowSimilarStats((v) => !v)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginTop: 12,
+                  padding: '8px 0',
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  color: '#1677ff',
+                }}
+              >
+                유사사례 {similarCases.length}인 통계 보기
+                {showSimilarStats ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+              {showSimilarStats && <SimilarCasesStatsContent allCases={similarCases} />}
             </Card>
           )}
 

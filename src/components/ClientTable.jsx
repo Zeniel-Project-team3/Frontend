@@ -203,7 +203,6 @@ function ClientTable({ dataSource, onEdit, onDataChange, editable = false, useAp
   });
 
   const apiColumns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 70, align: 'center', fixed: 'left', render: (v) => v ?? '-' },
     { title: '이름', dataIndex: 'name', key: 'name', width: 90, fixed: 'left', render: (v) => v ?? '-' },
     { title: '주민번호', dataIndex: 'residentId', key: 'residentId', width: 120, render: (v) => v ?? '-' },
     { title: '생년월일', dataIndex: 'birthDate', key: 'birthDate', width: 105, render: (v) => v ?? '-' },
