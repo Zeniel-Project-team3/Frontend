@@ -25,7 +25,7 @@ function AnalysisPage() {
   const [searchGender, setSearchGender] = useState('');
   const [searchPhone, setSearchPhone] = useState('');
   const [hasAnalysis, setHasAnalysis] = useState(false);
-  const [sidebarSection, setSidebarSection] = useState(SIDEBAR_KEYS.ANALYSIS);
+  const [sidebarSection, setSidebarSection] = useState(SIDEBAR_KEYS.ALL_DATA);
   const [workTrackerData, setWorkTrackerData] = useState(defaultWorkTrackerData);
   const [similarCasesData, setSimilarCasesData] = useState(defaultSimilarCasesData);
   const [guidelines, setGuidelines] = useState(defaultGuidelines);
