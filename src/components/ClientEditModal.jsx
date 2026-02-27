@@ -143,7 +143,7 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false,
   const [loadingExtra, setLoadingExtra] = useState(false);
   const [isEditingInViewMode, setIsEditingInViewMode] = useState(false);
   const [viewActiveTabKey, setViewActiveTabKey] = useState('1');
-  const [expandedConsultationText, setExpandedConsultationText] = useState({});
+  const [expandedConsultationRow, setExpandedConsultationRow] = useState(null);
   const [trainingAddModalOpen, setTrainingAddModalOpen] = useState(false);
   const [trainingAddSubmitting, setTrainingAddSubmitting] = useState(false);
 
@@ -401,60 +401,38 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false,
       dataIndex: 'summary',
       key: 'summary',
       ellipsis: false,
-      render: (text, record) => {
-        const raw = text ?? '';
-        const key = `${record.consultationId}-summary`;
-        const isExpanded = expandedConsultationText[key];
-        const display =
-          isExpanded || raw.length <= 40 ? raw || '-' : `${raw.slice(0, 40)}...`;
-        return (
-          <span
-            onClick={() =>
-              setExpandedConsultationText((prev) => ({
-                ...prev,
-                [key]: !prev[key],
-              }))
-            }
-            style={{
-              cursor: raw ? 'pointer' : 'default',
-              backgroundColor: isExpanded ? '#fffbe6' : 'transparent',
-              padding: isExpanded ? '2px 4px' : 0,
-              borderRadius: 4,
-            }}
-          >
-            {display}
-          </span>
-        );
+      render: (text) => {
+        const raw = (text ?? '').trim();
+        if (!raw) return '-';
+        const lines = raw.split(/\s*-\s*/).map((s) => s.trim()).filter(Boolean);
+        const withBreaks = lines.join('\n');
+        return <div style={{ whiteSpace: 'pre-line', lineHeight: 1.5 }}>{withBreaks}</div>;
       },
     },
     {
-      title: '상담내용',
+      title: '상담내용(원문)',
       dataIndex: 'detail',
       key: 'detail',
       ellipsis: false,
       render: (text, record) => {
         const raw = text ?? '';
-        const key = `${record.consultationId}-detail`;
-        const isExpanded = expandedConsultationText[key];
-        const display =
-          isExpanded || raw.length <= 40 ? raw || '-' : `${raw.slice(0, 40)}...`;
+        const isExpanded = expandedConsultationRow === record.consultationId;
         return (
-          <span
-            onClick={() =>
-              setExpandedConsultationText((prev) => ({
-                ...prev,
-                [key]: !prev[key],
-              }))
-            }
+          <div
             style={{
-              cursor: raw ? 'pointer' : 'default',
+              cursor: 'pointer',
               backgroundColor: isExpanded ? '#fffbe6' : 'transparent',
-              padding: isExpanded ? '2px 4px' : 0,
+              padding: '4px 8px',
               borderRadius: 4,
+              minHeight: 24,
             }}
           >
-            {display}
-          </span>
+            {isExpanded ? (
+              <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{raw || '-'}</div>
+            ) : (
+              <span style={{ color: '#8c8c8c' }}>행을 클릭하면 원문 보기</span>
+            )}
+          </div>
         );
       },
     },
@@ -578,7 +556,7 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false,
           ) : (
             <>
               <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                상담 요약/내용을 클릭하면 전체 내용이 펼쳐지고, 다시 클릭하면 접힙니다.
+                행을 클릭하면 해당 상담의 원문이 보입니다. 다시 클릭하면 접힙니다.
               </Text>
               <Table
                 size="small"
@@ -586,6 +564,14 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false,
                 rowKey="consultationId"
                 columns={consultationColumns}
                 pagination={false}
+                onRow={(record) => ({
+                  onClick: () => {
+                    setExpandedConsultationRow((prev) =>
+                      prev === record.consultationId ? null : record.consultationId
+                    );
+                  },
+                  style: { cursor: 'pointer' },
+                })}
               />
             </>
           ),
@@ -806,7 +792,8 @@ function ClientEditModal({ open, client, onSave, onCancel, useApiClient = false,
       open={open}
       onOk={isViewMode ? undefined : handleOk}
       onCancel={handleCancel}
-      width={isViewMode ? 800 : 720}
+      width={isViewMode ? (viewActiveTabKey === '3' ? 1400 : 1100) : 720}
+      styles={isViewMode ? { wrapper: { transition: 'width 0.28s ease-out' } } : undefined}
       closable={false}
       okText={client ? '저장' : '등록'}
       cancelText={isViewMode && !isEditingInViewMode ? '닫기' : '취소'}

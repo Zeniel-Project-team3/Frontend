@@ -12,27 +12,30 @@ function FileUploadSection({
   clientId,
 }) {
   const [uploading, setUploading] = useState(false);
+  // 선택한 파일은 로컬 state로 즉시 표시
+  const [fileList, setFileList] = useState([]);
 
-  const handleFileChange = (info) => {
-    const { fileList } = info;
-    // 항상 마지막 하나만 유지 (단일 파일 업로드)
-    const latestOnly = fileList.slice(-1);
-    setUploadedFiles(latestOnly);
+  const isAllowedByExt = (file) => {
+    const name = (file?.name || '').toLowerCase().trim();
+    const ext = name.includes('.') ? name.split('.').pop() : '';
+    const allowed = new Set(['pdf', 'csv', 'xlsx', 'xls', 'docx', 'doc']);
+    return allowed.has(ext);
   };
 
   const beforeUpload = (file) => {
-    const isValidType =
-      file.type === 'application/pdf' ||
-      file.type === 'text/csv' ||
-      file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-      file.type === 'application/vnd.ms-excel' ||
-      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-      file.type === 'application/msword';
-
-    if (!isValidType) {
+    if (!isAllowedByExt(file)) {
+      message.error('지원하지 않는 파일 형식입니다. (PDF/CSV/Excel/Word만 가능)');
       return Upload.LIST_IGNORE;
     }
+    // 자동 업로드 막고, 버튼 눌렀을 때만 업로드
     return false;
+  };
+
+  const handleFileChange = (info) => {
+    // antd가 넘겨주는 fileList를 신뢰하고, 마지막 1개만 유지
+    const next = Array.isArray(info?.fileList) ? info.fileList.slice(-1) : [];
+    setFileList(next);
+    setUploadedFiles?.(next);
   };
 
   const handleClickUpload = async () => {
@@ -41,11 +44,17 @@ function FileUploadSection({
       return;
     }
 
-    const fileItem = uploadedFiles && uploadedFiles[uploadedFiles.length - 1];
-    const fileObj = fileItem?.originFileObj;
+    const latest = fileList.length > 0 ? fileList[fileList.length - 1] : null;
+    const fileObj = latest?.originFileObj;
 
-    if (!fileObj) {
+    if (!fileObj || !(fileObj instanceof File)) {
       message.warning('업로드할 파일을 선택해 주세요.');
+      return;
+    }
+
+    // 여기서도 한 번 더 확장자 검증 (드물게 우회/꼬임 방지)
+    if (!isAllowedByExt(fileObj)) {
+      message.error('지원하지 않는 파일 형식입니다. (PDF/CSV/Excel/Word만 가능)');
       return;
     }
 
@@ -54,7 +63,8 @@ function FileUploadSection({
       await uploadConsultationFile(clientId, fileObj);
       message.success('상담 자료가 업로드되었습니다.');
       onAnalysisTrigger?.();
-      setUploadedFiles([]);
+      setFileList([]);
+      setUploadedFiles?.([]);
     } catch (e) {
       const resData = e?.response?.data;
       let msg;
@@ -73,8 +83,13 @@ function FileUploadSection({
     }
   };
 
-  const hasFile = !!(uploadedFiles && uploadedFiles.length > 0);
-  const latestFile = hasFile ? uploadedFiles[uploadedFiles.length - 1] : null;
+  const hasFile = fileList.length > 0;
+  const latestFile = hasFile ? fileList[fileList.length - 1] : null;
+
+  const clearFile = () => {
+    setFileList([]);
+    setUploadedFiles?.([]);
+  };
 
   return (
     <div>
@@ -82,7 +97,7 @@ function FileUploadSection({
         <Dragger
           name="file"
           multiple={false}
-          fileList={uploadedFiles}
+          fileList={fileList}
           onChange={handleFileChange}
           beforeUpload={beforeUpload}
           accept=".pdf,.csv,.xlsx,.xls,.docx,.doc"
@@ -102,18 +117,35 @@ function FileUploadSection({
       )}
 
       {hasFile && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
           <span>
             선택된 파일: <strong>{latestFile?.name}</strong>
           </span>
-          <Button
-            type="primary"
-            onClick={handleClickUpload}
-            disabled={!clientId || uploading}
-            loading={uploading}
-          >
-            {uploading ? '업로드 중...' : '파일 업로드'}
-          </Button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button
+              type="default"
+              onClick={clearFile}
+              disabled={uploading}
+            >
+              다른 파일 선택
+            </Button>
+            <Button
+              type="primary"
+              onClick={handleClickUpload}
+              disabled={!clientId || uploading}
+              loading={uploading}
+            >
+              {uploading ? '업로드 중...' : '파일 업로드'}
+            </Button>
+          </div>
         </div>
       )}
     </div>
